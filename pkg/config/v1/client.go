@@ -57,6 +57,7 @@ type ClientCommonConfig struct {
 	LoginFailExit *bool `json:"loginFailExit,omitempty"`
 
 	Log           LogConfig             `json:"log,omitempty"`
+	RemoteConfig  RemoteConfigConfig    `json:"remoteConfig,omitempty"`
 	WebServer     WebServerConfig       `json:"webServer,omitempty"`
 	MetricsServer MetricsServerConfig   `json:"metricsServer,omitempty"`
 	Transport     ClientTransportConfig `json:"transport,omitempty"`
@@ -79,6 +80,18 @@ type ClientCommonConfig struct {
 	Store StoreConfig `json:"store,omitempty"`
 }
 
+type RemoteConfigConfig struct {
+	URL      string `json:"url,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Interval int64  `json:"interval,omitempty"`
+}
+
+func (c *RemoteConfigConfig) Complete() {
+	if c.Interval <= 0 {
+		c.Interval = 30
+	}
+}
+
 func (c *ClientCommonConfig) Complete() error {
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
 	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
@@ -89,6 +102,7 @@ func (c *ClientCommonConfig) Complete() error {
 		return err
 	}
 	c.Log.Complete()
+	c.RemoteConfig.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
 	c.MetricsServer.Complete()

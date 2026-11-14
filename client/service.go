@@ -619,3 +619,8 @@ func (svr *Service) reloadConfigFromSourcesLocked() error {
 	}
 	return nil
 }
+
+// ReloadFromFile reloads the client configuration from its config file.
+func (svr *Service) ReloadFromFile() error {
+	return newServiceConfigManager(svr).ReloadFromFile()
+}

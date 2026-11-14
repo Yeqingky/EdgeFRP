@@ -38,11 +38,14 @@ import (
 var (
 	cfgFile     string
 	showVersion bool
+	serviceMode bool
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.json", "config file of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
+	rootCmd.PersistentFlags().BoolVar(&serviceMode, "service", false, "run as a Windows service")
+	_ = rootCmd.PersistentFlags().MarkHidden("service")
 }
 
 var rootCmd = &cobra.Command{
@@ -52,6 +55,9 @@ var rootCmd = &cobra.Command{
 		if showVersion {
 			fmt.Println(version.Full())
 			return nil
+		}
+		if serviceMode {
+			return runService(cfgFile)
 		}
 
 		unsafeFeatures := security.NewUnsafeFeatures(nil)
@@ -184,5 +190,9 @@ func startServiceWithAggregator(
 	if shouldGracefulClose {
 		go handleTermSignal(svr)
 	}
-	return svr.Run(context.Background())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	startRemoteConfigPoller(ctx, cfg, cfgFile, svr)
+	return svr.Run(ctx)
 }

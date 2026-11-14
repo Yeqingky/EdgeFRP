@@ -85,3 +85,23 @@ func validateLogConfig(c *v1.LogConfig) error {
 	}
 	return nil
 }
+
+func validateRemoteConfig(c *v1.RemoteConfigConfig) error {
+	if c.URL == "" {
+		return nil
+	}
+	u, err := url.Parse(c.URL)
+	if err != nil {
+		return fmt.Errorf("invalid remoteConfig.url: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("remoteConfig.url must use http or https")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("remoteConfig.url must include a host")
+	}
+	if c.Interval < 5 {
+		return fmt.Errorf("remoteConfig.interval must be at least 5 seconds")
+	}
+	return nil
+}
