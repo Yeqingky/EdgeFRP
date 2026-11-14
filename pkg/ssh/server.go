@@ -279,10 +279,10 @@ func (s *TunnelServer) parseClientAndProxyConfigurer(_ *tcpipForward, extraPaylo
 	if pc == nil {
 		return nil, nil, helpMessage, fmt.Errorf("new proxy configurer error")
 	}
-	config.RegisterProxyFlags(cmd, pc, config.WithSSHMode())
+	config.RegisterSSHProxyFlags(cmd, pc)
 
 	clientCfg := v1.ClientCommonConfig{}
-	config.RegisterClientCommonConfigFlags(cmd, &clientCfg, config.WithSSHMode())
+	config.RegisterSSHClientCommonFlags(cmd, &clientCfg)
 
 	cmd.InitDefaultHelpCmd()
 	if err := cmd.ParseFlags(args); err != nil {

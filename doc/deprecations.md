@@ -17,7 +17,7 @@ This document tracks deprecated features and APIs that are still shipped but sch
   - `server/service.go` — startup deprecation warnings and `metricsCollectors`.
   - `client/service.go` — startup deprecation warnings.
   - `pkg/config/v1/server.go` — `EnablePrometheus`; `pkg/config/v1/common.go` — `WebServerConfig.PprofEnable`.
-- **Notes:** Removal drops the startup warnings and the deprecation notes in `README.md` and the two `conf/*_full_example.toml` files together. `webServer` then serves only the admin API.
+- **Notes:** Removal drops the startup warnings and the deprecation notes in `README.md` and the two `conf/*_full_example.json` files together. `webServer` then serves only the admin API.
 
 ## Removed
 

@@ -67,7 +67,6 @@ frp also offers a P2P connect mode.
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
     * [Configuration Files](#configuration-files)
-    * [Using Environment Variables](#using-environment-variables)
     * [Split Configures Into Different Files](#split-configures-into-different-files)
     * [Dynamic Proxy Management (Store)](#dynamic-proxy-management-store)
     * [Monitor](#monitor)
@@ -489,7 +488,7 @@ Note that it may not work with all types of NAT devices. You might want to fallb
 
 ### Configuration Files
 
-frp supports TOML, YAML, and JSON for configuration.
+frp uses JSON configuration files.
 
 Read the full example configuration files to find out even more features not described here.
 
@@ -497,36 +496,9 @@ Examples use TOML format, but you can still use YAML or JSON.
 
 These configuration files is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
 
-[Full configuration file for frps (Server)](./conf/frps_full_example.toml)
+[Full configuration file for frps (Server)](./conf/frps_full_example.json)
 
-[Full configuration file for frpc (Client)](./conf/frpc_full_example.toml)
-
-### Using Environment Variables
-
-Environment variables can be referenced in the configuration file, using Go's standard format:
-
-```toml
-# frpc.toml
-serverAddr = "{{ .Envs.FRP_SERVER_ADDR }}"
-serverPort = 7000
-
-[[proxies]]
-name = "ssh"
-type = "tcp"
-localIP = "127.0.0.1"
-localPort = 22
-remotePort = {{ .Envs.FRP_SSH_REMOTE_PORT }}
-```
-
-With the config above, variables can be passed into `frpc` program like this:
-
-```
-export FRP_SERVER_ADDR=x.x.x.x
-export FRP_SSH_REMOTE_PORT=6000
-./frpc -c ./frpc.toml
-```
-
-`frpc` will render configuration file template using OS environment variables. Remember to prefix your reference with `.Envs`.
+[Full configuration file for frpc (Client)](./conf/frpc_full_example.json)
 
 ### Split Configures Into Different Files
 
@@ -1194,24 +1166,6 @@ It only works when protocol is tcp.
 serverAddr = "x.x.x.x"
 serverPort = 7000
 transport.proxyURL = "http://user:pwd@192.168.1.128:8080"
-```
-
-### Port range mapping
-
-*Added in v0.56.0*
-
-We can use the range syntax of Go template combined with the built-in `parseNumberRangePair` function to achieve port range mapping.
-
-The following example, when run, will create 8 proxies named `test-6000, test-6001 ... test-6007`, each mapping the remote port to the local port.
-
-```
-{{- range $_, $v := parseNumberRangePair "6000-6006,6007" "6000-6006,6007" }}
-[[proxies]]
-name = "tcp-{{ $v.First }}"
-type = "tcp"
-localPort = {{ $v.First }}
-remotePort = {{ $v.Second }}
-{{- end }}
 ```
 
 ### Client Plugins

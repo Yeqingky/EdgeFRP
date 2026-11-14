@@ -50,8 +50,7 @@ var verifyCmd = &cobra.Command{
 			return nil
 		}
 
-		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
-		warning, err := verifyClientConfig(cfgFile, strictConfigMode, unsafeFeatures)
+		warning, err := verifyClientConfig(cfgFile, true, security.NewUnsafeFeatures(nil))
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}

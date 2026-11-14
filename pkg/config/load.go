@@ -15,18 +15,13 @@
 package config
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"text/template"
 
-	toml "github.com/pelletier/go-toml/v2"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
@@ -35,99 +30,12 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-var glbEnvs map[string]string
-
-func init() {
-	glbEnvs = make(map[string]string)
-	envs := os.Environ()
-	for _, env := range envs {
-		pair := strings.SplitN(env, "=", 2)
-		if len(pair) != 2 {
-			continue
-		}
-		glbEnvs[pair[0]] = pair[1]
-	}
-}
-
-type Values struct {
-	Envs map[string]string // environment vars
-}
-
-func GetValues() *Values {
-	return &Values{
-		Envs: glbEnvs,
-	}
-}
-
-func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
-	tmpl, err := template.New("frp").Funcs(template.FuncMap{
-		"parseNumberRange":     parseNumberRange,
-		"parseNumberRangePair": parseNumberRangePair,
-	}).Parse(string(in))
-	if err != nil {
-		return nil, err
-	}
-
-	buffer := bytes.NewBufferString("")
-	if err := tmpl.Execute(buffer, values); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
-}
-
-func LoadFileContentWithTemplate(path string, values *Values) ([]byte, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return RenderWithTemplate(b, values)
-}
-
 func LoadConfigureFromFile(path string, c any, strict bool) error {
-	content, err := LoadFileContentWithTemplate(path, GetValues())
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return LoadConfigure(content, c, strict, detectFormatFromPath(path))
-}
-
-// detectFormatFromPath returns a format hint based on the file extension.
-func detectFormatFromPath(path string) string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".toml":
-		return "toml"
-	case ".yaml", ".yml":
-		return "yaml"
-	case ".json":
-		return "json"
-	default:
-		return ""
-	}
-}
-
-// parseYAMLWithDotFieldsHandling parses YAML with dot-prefixed fields handling
-// This function handles both cases efficiently: with or without dot fields
-func parseYAMLWithDotFieldsHandling(content []byte, target any) error {
-	var temp any
-	if err := yaml.Unmarshal(content, &temp); err != nil {
-		return err
-	}
-
-	// Remove dot fields if it's a map
-	if tempMap, ok := temp.(map[string]any); ok {
-		for key := range tempMap {
-			if strings.HasPrefix(key, ".") {
-				delete(tempMap, key)
-			}
-		}
-	}
-
-	// Convert to JSON and decode with strict validation
-	jsonBytes, err := jsonx.Marshal(temp)
-	if err != nil {
-		return err
-	}
-	return decodeJSONContent(jsonBytes, target, true)
+	return LoadConfigure(content, c, strict)
 }
 
 func decodeJSONContent(content []byte, target any, strict bool) error {
@@ -147,110 +55,21 @@ func decodeJSONContent(content []byte, target any, strict bool) error {
 	})
 }
 
-// LoadConfigure loads configuration from bytes and unmarshal into c.
-// Now it supports json, yaml and toml format.
-// An optional format hint (e.g. "toml", "yaml", "json") can be provided
-// to enable better error messages with line number information.
-func LoadConfigure(b []byte, c any, strict bool, formats ...string) error {
-	format := ""
-	if len(formats) > 0 {
-		format = formats[0]
+// LoadConfigure loads a JSON configuration into c.
+func LoadConfigure(b []byte, c any, strict bool) error {
+	if err := decodeJSONContent(b, c, strict); err != nil {
+		return enhanceDecodeError(err)
 	}
-
-	originalBytes := b
-	parsedFromTOML := false
-
-	var tomlObj any
-	tomlErr := toml.Unmarshal(b, &tomlObj)
-	if tomlErr == nil {
-		parsedFromTOML = true
-		var err error
-		b, err = jsonx.Marshal(&tomlObj)
-		if err != nil {
-			return err
-		}
-	} else if format == "toml" {
-		// File is known to be TOML but has syntax errors.
-		return formatTOMLError(tomlErr)
-	}
-
-	// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
-	if yaml.IsJSONBuffer(b) {
-		if err := decodeJSONContent(b, c, strict); err != nil {
-			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
-		}
-		return nil
-	}
-
-	// Handle YAML content
-	if strict {
-		// In strict mode, always use our custom handler to support YAML merge
-		if err := parseYAMLWithDotFieldsHandling(b, c); err != nil {
-			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
-		}
-		return nil
-	}
-	// Non-strict mode, parse normally
-	return yaml.Unmarshal(b, c)
+	return nil
 }
 
-// formatTOMLError extracts line/column information from TOML decode errors.
-func formatTOMLError(err error) error {
-	var decErr *toml.DecodeError
-	if errors.As(err, &decErr) {
-		row, col := decErr.Position()
-		return fmt.Errorf("toml: line %d, column %d: %s", row, col, decErr.Error())
-	}
-	var strictErr *toml.StrictMissingError
-	if errors.As(err, &strictErr) {
-		return strictErr
-	}
-	return err
-}
-
-// enhanceDecodeError tries to add field path and line number information to JSON/YAML decode errors.
-func enhanceDecodeError(err error, originalContent []byte, includeLine bool) error {
+// enhanceDecodeError adds the field path to JSON decode errors.
+func enhanceDecodeError(err error) error {
 	var typeErr *json.UnmarshalTypeError
 	if errors.As(err, &typeErr) && typeErr.Field != "" {
-		if includeLine {
-			line := findFieldLineInContent(originalContent, typeErr.Field)
-			if line > 0 {
-				return fmt.Errorf("line %d: field \"%s\": cannot unmarshal %s into %s", line, typeErr.Field, typeErr.Value, typeErr.Type)
-			}
-		}
 		return fmt.Errorf("field \"%s\": cannot unmarshal %s into %s", typeErr.Field, typeErr.Value, typeErr.Type)
 	}
 	return err
-}
-
-// findFieldLineInContent searches the original config content for a field name
-// and returns the 1-indexed line number where it appears, or 0 if not found.
-func findFieldLineInContent(content []byte, fieldPath string) int {
-	if fieldPath == "" {
-		return 0
-	}
-
-	// Use the last component of the field path (e.g. "proxies" from "proxies" or
-	// "protocol" from "transport.protocol").
-	parts := strings.Split(fieldPath, ".")
-	searchKey := parts[len(parts)-1]
-
-	lines := bytes.Split(content, []byte("\n"))
-	for i, line := range lines {
-		trimmed := bytes.TrimSpace(line)
-		// Match TOML key assignments like: key = ...
-		if bytes.HasPrefix(trimmed, []byte(searchKey)) {
-			rest := bytes.TrimSpace(trimmed[len(searchKey):])
-			if len(rest) > 0 && rest[0] == '=' {
-				return i + 1
-			}
-		}
-		// Match TOML table array headers like: [[proxies]]
-		if bytes.Contains(trimmed, []byte("[["+searchKey+"]]")) {
-			return i + 1
-		}
-	}
-	return 0
 }
 
 func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.ProxyConfigurer, error) {

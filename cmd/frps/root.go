@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,22 +31,13 @@ import (
 )
 
 var (
-	cfgFile          string
-	showVersion      bool
-	strictConfigMode bool
-	allowUnsafe      []string
-
-	serverCfg v1.ServerConfig
+	cfgFile     string
+	showVersion bool
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frps")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frps.json", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
-	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause errors")
-	rootCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{},
-		fmt.Sprintf("allowed unsafe features, one or more of: %s", strings.Join(security.ServerUnsafeFeatures, ", ")))
-
-	config.RegisterServerConfigFlags(rootCmd, &serverCfg)
 }
 
 var rootCmd = &cobra.Command{
@@ -59,25 +49,13 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		var (
-			svrCfg *v1.ServerConfig
-			err    error
-		)
-		if cfgFile != "" {
-			svrCfg, err = config.LoadServerConfig(cfgFile, strictConfigMode)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-		} else {
-			if err := serverCfg.Complete(); err != nil {
-				fmt.Printf("failed to complete server config: %v\n", err)
-				os.Exit(1)
-			}
-			svrCfg = &serverCfg
+		svrCfg, err := config.LoadServerConfig(cfgFile, true)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
-		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+		unsafeFeatures := security.NewUnsafeFeatures(nil)
 		validator := validation.NewConfigValidator(unsafeFeatures)
 		warning, err := validator.ValidateServerConfig(svrCfg)
 		if warning != nil {
@@ -97,7 +75,6 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	rootCmd.SetGlobalNormalizationFunc(config.WordSepNormalizeFunc)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -106,11 +83,7 @@ func Execute() {
 func runServer(cfg *v1.ServerConfig) (err error) {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
-	if cfgFile != "" {
-		log.Infof("frps uses config file: %s", cfgFile)
-	} else {
-		log.Infof("frps uses command line arguments for config")
-	}
+	log.Infof("frps uses config file: %s", cfgFile)
 
 	svr, err := server.NewService(cfg)
 	if err != nil {

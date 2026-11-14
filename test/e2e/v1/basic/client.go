@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		err = client.UpdateConfig(context.Background(), newClientConf)
 		framework.ExpectNoError(err)
 
-		err = client.Reload(context.Background(), true)
+		err = client.Reload(context.Background())
 		framework.ExpectNoError(err)
 		time.Sleep(time.Second)
 

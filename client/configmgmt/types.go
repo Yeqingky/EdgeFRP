@@ -17,7 +17,7 @@ var (
 )
 
 type ConfigManager interface {
-	ReloadFromFile(strict bool) error
+	ReloadFromFile() error
 
 	ReadConfigFile() (string, error)
 	WriteConfigFile(content []byte) error

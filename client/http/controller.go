@@ -69,13 +69,7 @@ func (c *Controller) toHTTPError(err error) error {
 
 // Reload handles GET /api/reload
 func (c *Controller) Reload(ctx *httppkg.Context) (any, error) {
-	strictConfigMode := false
-	strictStr := ctx.Query("strictConfig")
-	if strictStr != "" {
-		strictConfigMode, _ = strconv.ParseBool(strictStr)
-	}
-
-	if err := c.manager.ReloadFromFile(strictConfigMode); err != nil {
+	if err := c.manager.ReloadFromFile(); err != nil {
 		return nil, c.toHTTPError(err)
 	}
 	return nil, nil

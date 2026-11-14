@@ -25,17 +25,9 @@ import (
 	"github.com/fatedier/frp/pkg/nathole"
 )
 
-var (
-	natHoleSTUNServer string
-	natHoleLocalAddr  string
-)
-
 func init() {
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
-
-	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "", "STUN server address for nathole")
-	natholeCmd.PersistentFlags().StringVarP(&natHoleLocalAddr, "nat_hole_local_addr", "l", "", "local address to connect STUN server")
 }
 
 var natholeCmd = &cobra.Command{
@@ -47,17 +39,10 @@ var natholeDiscoveryCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover nathole information from stun server",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// ignore error here, because we can use command line parameters
-		cfg, _, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+		cfg, _, _, err := config.LoadClientConfig(cfgFile, true)
 		if err != nil {
-			cfg = &v1.ClientCommonConfig{}
-			if err := cfg.Complete(); err != nil {
-				fmt.Printf("failed to complete config: %v\n", err)
-				os.Exit(1)
-			}
-		}
-		if natHoleSTUNServer != "" {
-			cfg.NatHoleSTUNServer = natHoleSTUNServer
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
 		if err := validateForNatHoleDiscovery(cfg); err != nil {
@@ -65,7 +50,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		addrs, localAddr, err := nathole.Discover([]string{cfg.NatHoleSTUNServer}, natHoleLocalAddr)
+		addrs, localAddr, err := nathole.Discover([]string{cfg.NatHoleSTUNServer}, "")
 		if err != nil {
 			fmt.Println("discover error:", err)
 			os.Exit(1)

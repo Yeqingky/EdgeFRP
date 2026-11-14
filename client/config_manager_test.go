@@ -71,46 +71,27 @@ func TestServiceConfigManagerReloadVirtualNetRuntimeDependency(t *testing.T) {
 	}{
 		{
 			name:       "unrelated common config",
-			nextConfig: `serverAddr = "0.0.0.0"`,
+			nextConfig: `{"serverAddr":"0.0.0.0"}`,
 		},
 		{
-			name: "VirtualNet address without startup runtime",
-			nextConfig: `featureGates = { VirtualNet = true }
-virtualNet.address = "100.86.0.4/24"
-`,
+			name:                  "VirtualNet address without startup runtime",
+			nextConfig:            `{"featureGates":{"VirtualNet":true},"virtualNet":{"address":"100.86.0.4/24"}}`,
 			wantRuntimeDependency: true,
 		},
 		{
-			name: "VirtualNet proxy without startup runtime",
-			nextConfig: `[[proxies]]
-name = "vnet-proxy"
-type = "stcp"
-secretKey = "secret"
-[proxies.plugin]
-type = "virtual_net"
-`,
+			name:                  "VirtualNet proxy without startup runtime",
+			nextConfig:            `{"proxies":[{"name":"vnet-proxy","type":"stcp","secretKey":"secret","plugin":{"type":"virtual_net"}}]}`,
 			wantRuntimeDependency: true,
 		},
 		{
-			name: "VirtualNet visitor without startup runtime",
-			nextConfig: `[[visitors]]
-name = "vnet-visitor"
-type = "stcp"
-serverName = "vnet-server"
-secretKey = "secret"
-bindPort = -1
-[visitors.plugin]
-type = "virtual_net"
-destinationIP = "100.86.0.1"
-`,
+			name:                  "VirtualNet visitor without startup runtime",
+			nextConfig:            `{"visitors":[{"name":"vnet-visitor","type":"stcp","serverName":"vnet-server","secretKey":"secret","bindPort":-1,"plugin":{"type":"virtual_net","destinationIP":"100.86.0.1"}}]}`,
 			wantRuntimeDependency: true,
 		},
 		{
 			name:                  "existing VirtualNet startup runtime",
 			startupVirtualNetAddr: "100.86.0.4/24",
-			nextConfig: `featureGates = { VirtualNet = true }
-virtualNet.address = "100.86.0.5/24"
-`,
+			nextConfig:            `{"featureGates":{"VirtualNet":true},"virtualNet":{"address":"100.86.0.5/24"}}`,
 		},
 	}
 
@@ -125,7 +106,7 @@ virtualNet.address = "100.86.0.5/24"
 				t.Fatalf("complete current config: %v", err)
 			}
 
-			configFile := filepath.Join(t.TempDir(), "frpc.toml")
+			configFile := filepath.Join(t.TempDir(), "frpc.json")
 			if err := os.WriteFile(configFile, []byte(tc.nextConfig), 0o600); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
@@ -144,7 +125,7 @@ virtualNet.address = "100.86.0.5/24"
 				svr.vnetController = vnet.NewController(current.VirtualNet)
 			}
 
-			err := (&serviceConfigManager{svr: svr}).ReloadFromFile(true)
+			err := (&serviceConfigManager{svr: svr}).ReloadFromFile()
 			if tc.wantRuntimeDependency {
 				if !errors.Is(err, configmgmt.ErrApplyConfig) || !strings.Contains(err.Error(), runtimeErr) {
 					t.Fatalf("expected VirtualNet runtime dependency error, got: %v", err)
@@ -178,36 +159,25 @@ func TestServiceConfigManagerReloadVirtualNetRuntimeDependencyUsesMergedSources(
 	}{
 		{
 			name:                  "Store VirtualNet proxy is rejected",
-			nextConfig:            `serverAddr = "0.0.0.0"`,
+			nextConfig:            `{"serverAddr":"0.0.0.0"}`,
 			storeProxy:            newTestVirtualNetProxyConfig("store-vnet"),
 			wantRuntimeDependency: true,
 		},
 		{
 			name:                  "Store VirtualNet visitor is rejected",
-			nextConfig:            `serverAddr = "0.0.0.0"`,
+			nextConfig:            `{"serverAddr":"0.0.0.0"}`,
 			storeVisitor:          newTestVirtualNetVisitorConfig("store-vnet"),
 			wantRuntimeDependency: true,
 		},
 		{
-			name: "Store VirtualNet proxy overrides file proxy",
-			nextConfig: `[[proxies]]
-name = "shared"
-type = "tcp"
-localPort = 10080
-remotePort = 10081
-`,
+			name:                  "Store VirtualNet proxy overrides file proxy",
+			nextConfig:            `{"proxies":[{"name":"shared","type":"tcp","localPort":10080,"remotePort":10081}]}`,
 			storeProxy:            newTestVirtualNetProxyConfig("shared"),
 			wantRuntimeDependency: true,
 		},
 		{
-			name: "Store non-VirtualNet proxy overrides file VirtualNet proxy",
-			nextConfig: `[[proxies]]
-name = "shared"
-type = "stcp"
-secretKey = "secret"
-[proxies.plugin]
-type = "virtual_net"
-`,
+			name:            "Store non-VirtualNet proxy overrides file VirtualNet proxy",
+			nextConfig:      `{"proxies":[{"name":"shared","type":"stcp","secretKey":"secret","plugin":{"type":"virtual_net"}}]}`,
 			storeProxy:      newTestRawTCPProxyConfig("shared"),
 			wantProxyPlugin: "",
 		},
@@ -220,7 +190,7 @@ type = "virtual_net"
 				t.Fatalf("complete current config: %v", err)
 			}
 
-			configFile := filepath.Join(t.TempDir(), "frpc.toml")
+			configFile := filepath.Join(t.TempDir(), "frpc.json")
 			if err := os.WriteFile(configFile, []byte(tc.nextConfig), 0o600); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
@@ -255,7 +225,7 @@ type = "virtual_net"
 				storeSource:    storeSource,
 			}
 
-			err = (&serviceConfigManager{svr: svr}).ReloadFromFile(true)
+			err = (&serviceConfigManager{svr: svr}).ReloadFromFile()
 			if tc.wantRuntimeDependency {
 				if !errors.Is(err, configmgmt.ErrApplyConfig) || !strings.Contains(err.Error(), runtimeErr) {
 					t.Fatalf("expected VirtualNet runtime dependency error, got: %v", err)

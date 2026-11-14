@@ -2,6 +2,7 @@ package framework
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/onsi/ginkgo/v2"
+	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/fatedier/frp/test/e2e/mock/server"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
@@ -216,9 +218,27 @@ func (f *Framework) RenderTemplates(templates []string) (outs []string, ports ma
 		if err = tmpl.Execute(buffer, params); err != nil {
 			return nil, nil, err
 		}
-		outs = append(outs, buffer.String())
+		outs = append(outs, normalizeConfigBuffer(buffer.String()))
 	}
 	return
+}
+
+// normalizeConfigBuffer converts TOML fixtures to JSON for the JSON-only loader.
+// Test fixtures are still authored in TOML; the product no longer accepts TOML.
+func normalizeConfigBuffer(content string) string {
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" || trimmed[0] == '{' {
+		return content
+	}
+	var value any
+	if err := toml.Unmarshal([]byte(content), &value); err != nil {
+		return content
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return content
+	}
+	return string(encoded)
 }
 
 func (f *Framework) PortByName(name string) int {
@@ -271,6 +291,9 @@ func (f *Framework) SetEnvs(envs []string) {
 }
 
 func (f *Framework) WriteTempFile(name string, content string) string {
+	if strings.HasSuffix(name, ".toml") {
+		content = normalizeConfigBuffer(content)
+	}
 	filePath := filepath.Join(f.TempDirectory, name)
 	err := os.WriteFile(filePath, []byte(content), 0o600)
 	ExpectNoError(err)

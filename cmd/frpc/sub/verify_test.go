@@ -31,28 +31,24 @@ func TestVerifyClientConfigFeatureGates(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "VirtualNet enabled",
-			content: `featureGates = { VirtualNet = true }
-virtualNet.address = "100.86.0.4/24"
-`,
+			name:    "VirtualNet enabled",
+			content: `{"featureGates":{"VirtualNet":true},"virtualNet":{"address":"100.86.0.4/24"}}`,
 		},
 		{
-			name: "VirtualNet disabled",
-			content: `featureGates = { VirtualNet = false }
-virtualNet.address = "100.86.0.4/24"
-`,
+			name:    "VirtualNet disabled",
+			content: `{"featureGates":{"VirtualNet":false},"virtualNet":{"address":"100.86.0.4/24"}}`,
 			wantErr: "VirtualNet feature is not enabled",
 		},
 		{
 			name:    "unknown feature gate",
-			content: `featureGates = { UnknownFeature = true }`,
+			content: `{"featureGates":{"UnknownFeature":true}}`,
 			wantErr: "unrecognized feature gate: UnknownFeature",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			configFile := filepath.Join(t.TempDir(), "frpc.toml")
+			configFile := filepath.Join(t.TempDir(), "frpc.json")
 			require.NoError(t, os.WriteFile(configFile, []byte(tc.content), 0o600))
 
 			warning, err := verifyClientConfig(configFile, true, security.NewUnsafeFeatures(nil))

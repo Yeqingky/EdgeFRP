@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -71,16 +70,8 @@ func (c *Client) GetAllProxyStatus(ctx context.Context) (model.StatusResp, error
 	return allStatus, nil
 }
 
-func (c *Client) Reload(ctx context.Context, strictMode bool) error {
-	v := url.Values{}
-	if strictMode {
-		v.Set("strictConfig", "true")
-	}
-	queryStr := ""
-	if len(v) > 0 {
-		queryStr = "?" + v.Encode()
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/reload"+queryStr, nil)
+func (c *Client) Reload(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/reload", nil)
 	if err != nil {
 		return err
 	}

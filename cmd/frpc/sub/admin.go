@@ -31,6 +31,17 @@ import (
 
 var adminAPITimeout = 30 * time.Second
 
+var proxyTypes = []v1.ProxyType{
+	v1.ProxyTypeTCP,
+	v1.ProxyTypeUDP,
+	v1.ProxyTypeTCPMUX,
+	v1.ProxyTypeHTTP,
+	v1.ProxyTypeHTTPS,
+	v1.ProxyTypeSTCP,
+	v1.ProxyTypeSUDP,
+	v1.ProxyTypeXTCP,
+}
+
 func init() {
 	commands := []struct {
 		name        string
@@ -44,7 +55,6 @@ func init() {
 
 	for _, cmdConfig := range commands {
 		cmd := NewAdminCommand(cmdConfig.name, cmdConfig.description, cmdConfig.handler)
-		cmd.Flags().DurationVar(&adminAPITimeout, "api-timeout", adminAPITimeout, "Timeout for admin API calls")
 		rootCmd.AddCommand(cmd)
 	}
 }
@@ -54,7 +64,7 @@ func NewAdminCommand(name, short string, handler func(*v1.ClientCommonConfig) er
 		Use:   name,
 		Short: short,
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg, _, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+			cfg, _, _, err := config.LoadClientConfig(cfgFile, true)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -77,7 +87,7 @@ func ReloadHandler(clientCfg *v1.ClientCommonConfig) error {
 	client.SetAuth(clientCfg.WebServer.User, clientCfg.WebServer.Password)
 	ctx, cancel := context.WithTimeout(context.Background(), adminAPITimeout)
 	defer cancel()
-	if err := client.Reload(ctx, strictConfigMode); err != nil {
+	if err := client.Reload(ctx); err != nil {
 		return err
 	}
 	fmt.Println("reload success")

@@ -15,18 +15,15 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/config/v1/validation"
 )
 
-// WordSepNormalizeFunc changes all flags that contain "_" separators
+// WordSepNormalizeFunc changes all flags that contain "_" separators.
 func WordSepNormalizeFunc(f *pflag.FlagSet, name string) pflag.NormalizedName {
 	if strings.Contains(name, "_") {
 		return pflag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
@@ -34,36 +31,12 @@ func WordSepNormalizeFunc(f *pflag.FlagSet, name string) pflag.NormalizedName {
 	return pflag.NormalizedName(name)
 }
 
-type RegisterFlagOption func(*registerFlagOptions)
-
-type registerFlagOptions struct {
-	sshMode bool
-}
-
-func WithSSHMode() RegisterFlagOption {
-	return func(o *registerFlagOptions) {
-		o.sshMode = true
-	}
-}
-
-type BandwidthQuantityFlag struct {
-	V *types.BandwidthQuantity
-}
-
-func (f *BandwidthQuantityFlag) Set(s string) error {
-	return f.V.UnmarshalString(s)
-}
-
-func (f *BandwidthQuantityFlag) String() string {
-	return f.V.String()
-}
-
-func (f *BandwidthQuantityFlag) Type() string {
-	return "string"
-}
-
-func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer, opts ...RegisterFlagOption) {
-	registerProxyBaseConfigFlags(cmd, c.GetBaseConfig(), opts...)
+// RegisterSSHProxyFlags registers the proxy options accepted by the SSH tunnel
+// gateway command payload.
+func RegisterSSHProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer) {
+	cmd.Flags().StringVarP(&c.GetBaseConfig().Name, "proxy_name", "n", "", "proxy name")
+	cmd.Flags().StringToStringVarP(&c.GetBaseConfig().Metadatas, "metadatas", "", nil, "metadata key-value pairs (e.g., key1=value1,key2=value2)")
+	cmd.Flags().StringToStringVarP(&c.GetBaseConfig().Annotations, "annotations", "", nil, "annotation key-value pairs (e.g., key1=value1,key2=value2)")
 
 	switch cc := c.(type) {
 	case *v1.TCPProxyConfig:
@@ -95,29 +68,6 @@ func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer, opts ...Regist
 	}
 }
 
-func registerProxyBaseConfigFlags(cmd *cobra.Command, c *v1.ProxyBaseConfig, opts ...RegisterFlagOption) {
-	if c == nil {
-		return
-	}
-	options := &registerFlagOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	cmd.Flags().StringVarP(&c.Name, "proxy_name", "n", "", "proxy name")
-	cmd.Flags().StringToStringVarP(&c.Metadatas, "metadatas", "", nil, "metadata key-value pairs (e.g., key1=value1,key2=value2)")
-	cmd.Flags().StringToStringVarP(&c.Annotations, "annotations", "", nil, "annotation key-value pairs (e.g., key1=value1,key2=value2)")
-
-	if !options.sshMode {
-		cmd.Flags().StringVarP(&c.LocalIP, "local_ip", "i", "127.0.0.1", "local ip")
-		cmd.Flags().IntVarP(&c.LocalPort, "local_port", "l", 0, "local port")
-		cmd.Flags().BoolVarP(&c.Transport.UseEncryption, "ue", "", false, "use encryption")
-		cmd.Flags().BoolVarP(&c.Transport.UseCompression, "uc", "", false, "use compression")
-		cmd.Flags().StringVarP(&c.Transport.BandwidthLimitMode, "bandwidth_limit_mode", "", types.BandwidthLimitModeClient, "bandwidth limit mode")
-		cmd.Flags().VarP(&BandwidthQuantityFlag{V: &c.Transport.BandwidthLimit}, "bandwidth_limit", "", "bandwidth limit (e.g. 100KB or 1MB)")
-	}
-}
-
 func registerProxyDomainConfigFlags(cmd *cobra.Command, c *v1.DomainConfig) {
 	if c == nil {
 		return
@@ -126,91 +76,10 @@ func registerProxyDomainConfigFlags(cmd *cobra.Command, c *v1.DomainConfig) {
 	cmd.Flags().StringVarP(&c.SubDomain, "sd", "", "", "sub domain")
 }
 
-func RegisterVisitorFlags(cmd *cobra.Command, c v1.VisitorConfigurer, opts ...RegisterFlagOption) {
-	registerVisitorBaseConfigFlags(cmd, c.GetBaseConfig(), opts...)
-
-	// add visitor flags if exist
-}
-
-func registerVisitorBaseConfigFlags(cmd *cobra.Command, c *v1.VisitorBaseConfig, _ ...RegisterFlagOption) {
-	if c == nil {
-		return
-	}
-	cmd.Flags().StringVarP(&c.Name, "visitor_name", "n", "", "visitor name")
-	cmd.Flags().BoolVarP(&c.Transport.UseEncryption, "ue", "", false, "use encryption")
-	cmd.Flags().BoolVarP(&c.Transport.UseCompression, "uc", "", false, "use compression")
-	cmd.Flags().StringVarP(&c.SecretKey, "sk", "", "", "secret key")
-	cmd.Flags().StringVarP(&c.ServerName, "server_name", "", "", "server name")
-	cmd.Flags().StringVarP(&c.ServerUser, "server-user", "", "", "server user")
-	cmd.Flags().StringVarP(&c.BindAddr, "bind_addr", "", "", "bind addr")
-	cmd.Flags().IntVarP(&c.BindPort, "bind_port", "", 0, "bind port")
-}
-
-func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfig, opts ...RegisterFlagOption) {
-	options := &registerFlagOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	if !options.sshMode {
-		cmd.PersistentFlags().StringVarP(&c.ServerAddr, "server_addr", "s", "127.0.0.1", "frp server's address")
-		cmd.PersistentFlags().IntVarP(&c.ServerPort, "server_port", "P", 7000, "frp server's port")
-		cmd.PersistentFlags().StringVarP(&c.Transport.Protocol, "protocol", "p", "tcp",
-			fmt.Sprintf("optional values are %v", validation.SupportedTransportProtocols))
-		cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
-		cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "console or file path")
-		cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log file reversed days")
-		cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
-		cmd.PersistentFlags().StringVarP(&c.Transport.TLS.ServerName, "tls_server_name", "", "", "specify the custom server name of tls certificate")
-		cmd.PersistentFlags().StringVarP(&c.DNSServer, "dns_server", "", "", "specify dns server instead of using system default one")
-		c.Transport.TLS.Enable = cmd.PersistentFlags().BoolP("tls_enable", "", true, "enable frpc tls")
-	}
+// RegisterSSHClientCommonFlags registers the client options accepted by the SSH
+// tunnel gateway command payload.
+func RegisterSSHClientCommonFlags(cmd *cobra.Command, c *v1.ClientCommonConfig) {
 	cmd.PersistentFlags().StringVarP(&c.User, "user", "u", "", "user")
 	cmd.PersistentFlags().StringVar(&c.ClientID, "client-id", "", "unique identifier for this frpc instance")
 	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
-}
-
-type PortsRangeSliceFlag struct {
-	V *[]types.PortsRange
-}
-
-func (f *PortsRangeSliceFlag) String() string {
-	if f.V == nil {
-		return ""
-	}
-	return types.PortsRangeSlice(*f.V).String()
-}
-
-func (f *PortsRangeSliceFlag) Set(s string) error {
-	slice, err := types.NewPortsRangeSliceFromString(s)
-	if err != nil {
-		return err
-	}
-	*f.V = slice
-	return nil
-}
-
-func (f *PortsRangeSliceFlag) Type() string {
-	return "string"
-}
-
-func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...RegisterFlagOption) {
-	cmd.PersistentFlags().StringVarP(&c.BindAddr, "bind_addr", "", "0.0.0.0", "bind address")
-	cmd.PersistentFlags().IntVarP(&c.BindPort, "bind_port", "p", 7000, "bind port")
-	cmd.PersistentFlags().IntVarP(&c.KCPBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
-	cmd.PersistentFlags().IntVarP(&c.QUICBindPort, "quic_bind_port", "", 0, "quic bind udp port")
-	cmd.PersistentFlags().StringVarP(&c.ProxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
-	cmd.PersistentFlags().IntVarP(&c.VhostHTTPPort, "vhost_http_port", "", 0, "vhost http port")
-	cmd.PersistentFlags().IntVarP(&c.VhostHTTPSPort, "vhost_https_port", "", 0, "vhost https port")
-	cmd.PersistentFlags().Int64VarP(&c.VhostHTTPTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
-	cmd.PersistentFlags().BoolVarP(&c.EnablePrometheus, "enable_prometheus", "", false, "export prometheus metrics on web server")
-	cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "log file")
-	cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
-	cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log max days")
-	cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
-	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
-	cmd.PersistentFlags().StringVarP(&c.SubDomainHost, "subdomain_host", "", "", "subdomain host")
-	cmd.PersistentFlags().VarP(&PortsRangeSliceFlag{V: &c.AllowPorts}, "allow_ports", "", "allow ports")
-	cmd.PersistentFlags().Int64VarP(&c.MaxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
-	cmd.PersistentFlags().BoolVarP(&c.Transport.TLS.Force, "tls_only", "", false, "frps tls only")
 }

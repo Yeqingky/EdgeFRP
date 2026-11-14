@@ -23,12 +23,12 @@ func newServiceConfigManager(svr *Service) configmgmt.ConfigManager {
 	return &serviceConfigManager{svr: svr}
 }
 
-func (m *serviceConfigManager) ReloadFromFile(strict bool) error {
+func (m *serviceConfigManager) ReloadFromFile() error {
 	if m.svr.configFilePath == "" {
 		return fmt.Errorf("%w: frpc has no config file path", configmgmt.ErrInvalidArgument)
 	}
 
-	result, err := config.LoadClientConfigResult(m.svr.configFilePath, strict)
+	result, err := config.LoadClientConfigResult(m.svr.configFilePath, true)
 	if err != nil {
 		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)
 	}

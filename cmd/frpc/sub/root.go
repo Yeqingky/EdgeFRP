@@ -17,12 +17,9 @@ package sub
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -39,21 +36,13 @@ import (
 )
 
 var (
-	cfgFile          string
-	cfgDir           string
-	showVersion      bool
-	strictConfigMode bool
-	allowUnsafe      []string
+	cfgFile     string
+	showVersion bool
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
-	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.json", "config file of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
-	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause an errors")
-
-	rootCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{},
-		fmt.Sprintf("allowed unsafe features, one or more of: %s", strings.Join(security.ClientUnsafeFeatures, ", ")))
 }
 
 var rootCmd = &cobra.Command{
@@ -65,14 +54,7 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
-
-		// If cfgDir is not empty, run multiple frpc service for each config file in cfgDir.
-		// Note that it's only designed for testing. It's not guaranteed to be stable.
-		if cfgDir != "" {
-			_ = runMultipleClients(cfgDir, unsafeFeatures)
-			return nil
-		}
+		unsafeFeatures := security.NewUnsafeFeatures(nil)
 
 		// Do not show command usage here.
 		err := runClient(cfgFile, unsafeFeatures)
@@ -84,29 +66,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func runMultipleClients(cfgDir string, unsafeFeatures *security.UnsafeFeatures) error {
-	var wg sync.WaitGroup
-	err := filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		wg.Add(1)
-		time.Sleep(time.Millisecond)
-		go func() {
-			defer wg.Done()
-			err := runClient(path, unsafeFeatures)
-			if err != nil {
-				fmt.Printf("frpc service error for config file [%s]\n", path)
-			}
-		}()
-		return nil
-	})
-	wg.Wait()
-	return err
-}
-
 func Execute() {
-	rootCmd.SetGlobalNormalizationFunc(config.WordSepNormalizeFunc)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -121,7 +81,7 @@ func handleTermSignal(svr *client.Service) {
 
 func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) error {
 	// Load configuration
-	result, err := config.LoadClientConfigResult(cfgFilePath, strictConfigMode)
+	result, err := config.LoadClientConfigResult(cfgFilePath, true)
 	if err != nil {
 		return err
 	}

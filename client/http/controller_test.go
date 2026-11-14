@@ -20,7 +20,7 @@ import (
 )
 
 type fakeConfigManager struct {
-	reloadFromFileFn      func(strict bool) error
+	reloadFromFileFn      func() error
 	readConfigFileFn      func() (string, error)
 	writeConfigFileFn     func(content []byte) error
 	getProxyStatusFn      func() []*proxy.WorkingStatus
@@ -42,9 +42,9 @@ type fakeConfigManager struct {
 	gracefulCloseFn     func(d time.Duration)
 }
 
-func (m *fakeConfigManager) ReloadFromFile(strict bool) error {
+func (m *fakeConfigManager) ReloadFromFile() error {
 	if m.reloadFromFileFn != nil {
-		return m.reloadFromFileFn(strict)
+		return m.reloadFromFileFn()
 	}
 	return nil
 }
@@ -255,7 +255,7 @@ func TestReloadErrorMapping(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			controller := &Controller{
-				manager: &fakeConfigManager{reloadFromFileFn: func(bool) error { return tc.err }},
+				manager: &fakeConfigManager{reloadFromFileFn: func() error { return tc.err }},
 			}
 			ctx := httppkg.NewContext(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/reload", nil))
 			_, err := controller.Reload(ctx)

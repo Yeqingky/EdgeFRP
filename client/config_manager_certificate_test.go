@@ -73,16 +73,22 @@ func TestFileReloadCertificatesAndStoreMutations(t *testing.T) {
 			dir := t.TempDir()
 			crtPath, keyPath := filepath.Join(dir, "tls.crt"), filepath.Join(dir, "tls.key")
 			original := writeReloadCertificate(t, crtPath, keyPath)
-			configPath := filepath.Join(dir, "frpc.toml")
-			content := fmt.Sprintf(`[[proxies]]
-name = "https"
-type = "tcp"
-remotePort = 8443
-[proxies.plugin]
-type = %q
-localAddr = "127.0.0.1:80"
-crtPath = %q
-keyPath = %q
+			configPath := filepath.Join(dir, "frpc.json")
+			content := fmt.Sprintf(`{
+  "proxies": [
+    {
+      "name": "https",
+      "type": "tcp",
+      "remotePort": 8443,
+      "plugin": {
+        "type": %q,
+        "localAddr": "127.0.0.1:80",
+        "crtPath": %q,
+        "keyPath": %q
+      }
+    }
+  ]
+}
 `, pluginType, crtPath, keyPath)
 			require.NoError(t, os.WriteFile(configPath, []byte(content), 0o600))
 			result, err := config.LoadClientConfigResult(configPath, true)
@@ -145,7 +151,7 @@ keyPath = %q
 				require.NoError(t, resp.Body.Close())
 			}
 			checkExistingConnection()
-			require.NoError(t, manager.ReloadFromFile(true))
+			require.NoError(t, manager.ReloadFromFile())
 			require.NoError(t, connect(original).NetConn().Close())
 
 			next := writeReloadCertificate(t, crtPath, keyPath)
@@ -158,7 +164,7 @@ keyPath = %q
 			require.NoError(t, connect(original).NetConn().Close())
 			require.NoError(t, manager.DeleteStoreProxy("https"))
 			require.NoError(t, connect(original).NetConn().Close())
-			require.NoError(t, manager.ReloadFromFile(true))
+			require.NoError(t, manager.ReloadFromFile())
 			require.NoError(t, connect(next).NetConn().Close())
 			checkExistingConnection()
 
@@ -170,7 +176,7 @@ keyPath = %q
 				} else {
 					require.NoError(t, os.WriteFile(crtPath, []byte("invalid"), 0o600))
 				}
-				require.NoError(t, manager.ReloadFromFile(true), "certificate errors must not fail reload")
+				require.NoError(t, manager.ReloadFromFile(), "certificate errors must not fail reload")
 				status, ok := pm.GetProxyStatus("https")
 				require.True(t, ok)
 				require.Equal(t, proxy.ProxyPhaseRunning, status.Phase)
@@ -178,7 +184,7 @@ keyPath = %q
 				require.NoError(t, connect(next).NetConn().Close())
 				checkExistingConnection()
 				require.NoError(t, os.WriteFile(crtPath, saved, 0o600))
-				require.NoError(t, manager.ReloadFromFile(true))
+				require.NoError(t, manager.ReloadFromFile())
 				status, _ = pm.GetProxyStatus("https")
 				require.Empty(t, status.Err, "restoring the active bytes must clear the reload error")
 			}
@@ -186,9 +192,9 @@ keyPath = %q
 			// A config change still replaces the proxy and uses normal startup errors.
 			require.NoError(t, oldConn.NetConn().Close())
 			require.NoError(t, os.WriteFile(crtPath, []byte("invalid"), 0o600))
-			changedConfig := strings.Replace(content, "remotePort = 8443", "remotePort = 8444", 1)
+			changedConfig := strings.Replace(content, `"remotePort": 8443`, `"remotePort": 8444`, 1)
 			require.NoError(t, os.WriteFile(configPath, []byte(changedConfig), 0o600))
-			require.NoError(t, manager.ReloadFromFile(true))
+			require.NoError(t, manager.ReloadFromFile())
 			select {
 			case name := <-sender.started:
 				require.Equal(t, "https", name)
@@ -210,16 +216,22 @@ func TestFileReloadCertificatesDuringControlHandoff(t *testing.T) {
 			dir := t.TempDir()
 			crtPath, keyPath := filepath.Join(dir, "tls.crt"), filepath.Join(dir, "tls.key")
 			original := writeReloadCertificate(t, crtPath, keyPath)
-			configPath := filepath.Join(dir, "frpc.toml")
-			require.NoError(t, os.WriteFile(configPath, fmt.Appendf(nil, `[[proxies]]
-name = "https"
-type = "tcp"
-remotePort = 8443
-[proxies.plugin]
-type = %q
-localAddr = "127.0.0.1:80"
-crtPath = %q
-keyPath = %q
+			configPath := filepath.Join(dir, "frpc.json")
+			require.NoError(t, os.WriteFile(configPath, fmt.Appendf(nil, `{
+  "proxies": [
+    {
+      "name": "https",
+      "type": "tcp",
+      "remotePort": 8443,
+      "plugin": {
+        "type": %q,
+        "localAddr": "127.0.0.1:80",
+        "crtPath": %q,
+        "keyPath": %q
+      }
+    }
+  ]
+}
 `, pluginType, crtPath, keyPath), 0o600))
 			result, err := config.LoadClientConfigResult(configPath, true)
 			require.NoError(t, err)
@@ -281,7 +293,7 @@ keyPath = %q
 			var reloadErr error
 			go func() {
 				close(reloadStarted)
-				reloadErr = (&serviceConfigManager{svr: svr}).ReloadFromFile(true)
+				reloadErr = (&serviceConfigManager{svr: svr}).ReloadFromFile()
 				close(reloadDone)
 			}()
 			t.Cleanup(func() {
