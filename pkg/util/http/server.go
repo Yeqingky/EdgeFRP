@@ -24,7 +24,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/fatedier/frp/assets"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
@@ -46,8 +45,6 @@ type Server struct {
 }
 
 func NewServer(cfg v1.WebServerConfig) (*Server, error) {
-	assets.Load(cfg.AssetsDir)
-
 	s, err := newServer(cfg.Addr, cfg.Port, cfg.User, cfg.Password, cfg.TLS)
 	if err != nil {
 		return nil, err
@@ -118,14 +115,12 @@ func (s *Server) Close() error {
 
 type RouterRegisterHelper struct {
 	Router         *mux.Router
-	AssetsFS       http.FileSystem
 	AuthMiddleware mux.MiddlewareFunc
 }
 
 func (s *Server) RouteRegister(register func(helper *RouterRegisterHelper)) {
 	register(&RouterRegisterHelper{
 		Router:         s.router,
-		AssetsFS:       assets.FileSystem,
 		AuthMiddleware: s.authMiddleware,
 	})
 }

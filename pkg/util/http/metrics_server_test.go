@@ -22,7 +22,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/fatedier/frp/assets"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
@@ -55,7 +54,7 @@ func TestMetricsServerRoutes(t *testing.T) {
 			for _, authed := range []bool{false, true} {
 				for _, path := range []string{
 					"/healthz", "/metrics", "/debug/pprof/", "/debug/pprof/goroutine",
-					"/debug/pprof/cmdline", "/debug/pprof/unknown", "/", "/static/app.js", "/api/serverinfo", "/api/config",
+					"/debug/pprof/cmdline", "/debug/pprof/unknown", "/", "/unknown", "/api/serverinfo", "/api/config",
 				} {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
 					if authed {
@@ -88,20 +87,6 @@ func TestMetricsServerRoutes(t *testing.T) {
 			require.Equal(t, 1, calls, "unauthenticated requests must not reach the metrics handler")
 		})
 	}
-}
-
-func TestMetricsServerWithoutMetricsPreservesAssets(t *testing.T) {
-	assets.Load(t.TempDir())
-	before := assets.FileSystem
-	t.Cleanup(func() { assets.Load("") })
-	s := newTestMetricsServer(t, false, nil)
-	// assets.Load uses http.Dir for local assets, a value rather than a pointer.
-	require.Equal(t, before, assets.FileSystem)
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	req.SetBasicAuth("monitor", "secret")
-	resp := httptest.NewRecorder()
-	s.router.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusNotFound, resp.Code)
 }
 
 func TestMetricsServerDisabled(t *testing.T) {

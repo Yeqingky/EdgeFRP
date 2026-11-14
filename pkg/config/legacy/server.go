@@ -75,11 +75,11 @@ type ServerCommonConf struct {
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHTTPTimeout int64 `ini:"vhost_http_timeout" json:"vhost_http_timeout"`
-	// DashboardAddr specifies the address that the dashboard binds to. By
+	// DashboardAddr specifies the address that the web server binds to. By
 	// default, this value is "0.0.0.0".
 	DashboardAddr string `ini:"dashboard_addr" json:"dashboard_addr"`
-	// DashboardPort specifies the port that the dashboard listens on. If this
-	// value is 0, the dashboard will not be started. By default, this value is
+	// DashboardPort specifies the port that the web server listens on. If this
+	// value is 0, the web server will not be started. By default, this value is
 	// 0.
 	DashboardPort int `ini:"dashboard_port" json:"dashboard_port"`
 	// DashboardTLSCertFile specifies the path of the cert file that the server will
@@ -90,22 +90,18 @@ type ServerCommonConf struct {
 	// load. If "dashboard_tls_cert_file", "dashboard_tls_key_file" are valid, the server will use this
 	// supplied tls configuration.
 	DashboardTLSKeyFile string `ini:"dashboard_tls_key_file" json:"dashboard_tls_key_file"`
-	// DashboardTLSMode specifies the mode of the dashboard between HTTP or HTTPS modes. By
+	// DashboardTLSMode specifies the mode of the web server between HTTP or HTTPS modes. By
 	// default, this value is false, which is HTTP mode.
 	DashboardTLSMode bool `ini:"dashboard_tls_mode" json:"dashboard_tls_mode"`
-	// DashboardUser specifies the username that the dashboard will use for
+	// DashboardUser specifies the username that the web server will use for
 	// login.
 	DashboardUser string `ini:"dashboard_user" json:"dashboard_user"`
-	// DashboardPwd specifies the password that the dashboard will use for
+	// DashboardPwd specifies the password that the web server will use for
 	// login.
 	DashboardPwd string `ini:"dashboard_pwd" json:"dashboard_pwd"`
 	// EnablePrometheus will export prometheus metrics on {dashboard_addr}:{dashboard_port}
 	// in /metrics api.
 	EnablePrometheus bool `ini:"enable_prometheus" json:"enable_prometheus"`
-	// AssetsDir specifies the local directory that the dashboard will load
-	// resources from. If this value is "", assets will be loaded from the
-	// bundled executable using statik. By default, this value is "".
-	AssetsDir string `ini:"assets_dir" json:"assets_dir"`
 	// LogFile specifies a file where logs will be written to. This value will
 	// only be used if LogWay is set appropriately. By default, this value is
 	// "console".
@@ -193,8 +189,8 @@ type ServerCommonConf struct {
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
-	// Enable golang pprof handlers in dashboard listener.
-	// Dashboard port must be set first.
+	// Enable golang pprof handlers in web server listener.
+	// webServer.port must be set first.
 	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
 	// NatHoleAnalysisDataReserveHours specifies the hours to reserve nat hole analysis data.
 	NatHoleAnalysisDataReserveHours int64 `ini:"nat_hole_analysis_data_reserve_hours" json:"nat_hole_analysis_data_reserve_hours"`

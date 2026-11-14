@@ -120,7 +120,7 @@ type Service struct {
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
-	// web server for dashboard UI and apis
+	// web server for apis
 	webServer     *httppkg.Server
 	metricsServer *httppkg.Server
 	// HTTP vhost resources are started and owned by NewService.
@@ -370,7 +370,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 
 	// Collectors are enabled at most once. The in-memory collector is only read
-	// by the dashboard API, and Prometheus metrics need an endpoint to serve them.
+	// by the admin API, and Prometheus metrics need an endpoint to serve them.
 	enableMem, enablePrometheus := metricsCollectors(cfg)
 	if enableMem {
 		modelmetrics.EnableMem()
@@ -391,7 +391,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 }
 
 // metricsCollectors reports which collectors should be started for cfg. The
-// in-memory collector only backs the dashboard API (webServer), while the
+// in-memory collector only backs the admin API (webServer), while the
 // Prometheus collector needs a listener that serves /metrics: either the new
 // metricsServer, or the legacy webServer endpoint gated by enablePrometheus.
 func metricsCollectors(cfg *v1.ServerConfig) (mem bool, prometheus bool) {
@@ -419,7 +419,7 @@ func (svr *Service) Run(ctx context.Context) {
 	stopClose := context.AfterFunc(ctx, func() { _ = svr.Close() })
 	defer stopClose()
 
-	// run dashboard web server.
+	// run web server.
 	if svr.webServer != nil {
 		if svr.cfg.WebServer.PprofEnable {
 			log.Warnf("webServer pprof endpoints are deprecated; use metricsServer.pprofEnable instead")
@@ -431,9 +431,9 @@ func (svr *Service) Run(ctx context.Context) {
 			log.Infof("webServer /healthz is deprecated; health probes can migrate to metricsServer.port")
 		}
 		go func() {
-			log.Infof("dashboard listen on %s", svr.webServer.Address())
+			log.Infof("web server listen on %s", svr.webServer.Address())
 			if err := svr.webServer.Run(); err != nil {
-				log.Warnf("dashboard server exit with error: %v", err)
+				log.Warnf("web server exit with error: %v", err)
 			}
 		}()
 	}

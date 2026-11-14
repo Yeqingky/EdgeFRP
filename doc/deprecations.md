@@ -19,7 +19,7 @@ For the version compatibility policy that bounds these support windows, see the 
   - `server/service.go` — startup deprecation warnings and `metricsCollectors`.
   - `client/service.go` — startup deprecation warnings.
   - `pkg/config/v1/server.go` — `EnablePrometheus`; `pkg/config/v1/common.go` — `WebServerConfig.PprofEnable`.
-- **Notes:** Removal drops the startup warnings and the deprecation notes in `README.md` and the two `conf/*_full_example.toml` files together. `webServer` then serves only the dashboard and the admin API.
+- **Notes:** Removal drops the startup warnings and the deprecation notes in `README.md` and the two `conf/*_full_example.toml` files together. `webServer` then serves only the admin API.
 
 ### Wire protocol v1
 

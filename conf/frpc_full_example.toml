@@ -76,8 +76,6 @@ webServer.addr = "127.0.0.1"
 webServer.port = 7400
 webServer.user = "admin"
 webServer.password = "admin"
-# Admin assets directory. By default, these assets are bundled with frpc.
-# webServer.assetsDir = "./static"
 
 # Deprecated: use metricsServer.pprofEnable for authenticated profiling.
 # Enable golang pprof handlers in admin listener.
@@ -234,7 +232,7 @@ healthCheck.intervalSeconds = 10
 metadatas.var1 = "abc"
 metadatas.var2 = "123"
 # You can add some extra information to the proxy through annotations.
-# These annotations will be displayed on the frps dashboard.
+# These annotations will be sent to the server with the proxy.
 [proxies.annotations]
 key1 = "value1"
 "prefix/key2" = "value2"

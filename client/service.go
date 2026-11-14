@@ -123,7 +123,7 @@ type Service struct {
 	// Auth runtime and encryption materials
 	auth *auth.ClientAuth
 
-	// web server for admin UI and apis
+	// web server for apis
 	webServer     *httppkg.Server
 	metricsServer *httppkg.Server
 

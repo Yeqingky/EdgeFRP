@@ -1,29 +1,17 @@
 export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
-NOWEB_TAG = $(shell [ ! -d web/frps/dist ] || [ ! -d web/frpc/dist ] && echo ',noweb')
 FRP_COMPAT_BASELINE_COUNT ?= 8
 FRP_COMPAT_FLOOR_VERSION ?= 0.61.0
 
-.PHONY: web web-ci frps-web frpc-web frps frpc e2e-compatibility-smoke e2e-compatibility e2e-compatibility-floor
+.PHONY: frps frpc e2e-compatibility-smoke e2e-compatibility e2e-compatibility-floor
 
-all: env fmt web build
+all: env fmt build
 
 build: frps frpc
 
 env:
 	@go version
-
-web: frps-web frpc-web
-
-web-ci:
-	cd web && npm ci && npm run lint:check --workspace frps && npm run lint:check --workspace frpc && npm run test:unit && npm run build --workspace frps && npm run build --workspace frpc
-
-frps-web:
-	$(MAKE) -C web/frps build
-
-frpc-web:
-	$(MAKE) -C web/frpc build
 
 fmt:
 	go fmt ./...
@@ -35,22 +23,21 @@ gci:
 	gci write -s standard -s default -s "prefix(github.com/fatedier/frp/)" ./
 
 vet:
-	go vet -tags "$(NOWEB_TAG)" ./...
+	go vet ./...
 
 frps:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frps$(NOWEB_TAG)" -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frps" -o bin/frps ./cmd/frps
 
 frpc:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frpc$(NOWEB_TAG)" -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frpc" -o bin/frpc ./cmd/frpc
 
 test: gotest
 
 gotest:
-	go test -tags "$(NOWEB_TAG)" -v --cover ./assets/...
-	go test -tags "$(NOWEB_TAG)" -v --cover ./cmd/...
-	go test -tags "$(NOWEB_TAG)" -v --cover ./client/...
-	go test -tags "$(NOWEB_TAG)" -v --cover ./server/...
-	go test -tags "$(NOWEB_TAG)" -v --cover ./pkg/...
+	go test -v --cover ./cmd/...
+	go test -v --cover ./client/...
+	go test -v --cover ./server/...
+	go test -v --cover ./pkg/...
 
 e2e:
 	./hack/run-e2e.sh

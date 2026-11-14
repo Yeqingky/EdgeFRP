@@ -295,7 +295,7 @@ func TestMetricsCollectors(t *testing.T) {
 			name: "enablePrometheus without listeners", enablePrometheus: true,
 		},
 		{
-			// The in-memory collector only backs the dashboard API.
+			// The in-memory collector only backs the admin API.
 			name: "metrics server only", metricsPort: 7501, wantPrometheus: true,
 		},
 		{

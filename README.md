@@ -69,9 +69,7 @@ frp also offers a P2P connect mode.
     * [Configuration Files](#configuration-files)
     * [Using Environment Variables](#using-environment-variables)
     * [Split Configures Into Different Files](#split-configures-into-different-files)
-    * [Server Dashboard](#server-dashboard)
-    * [Client Admin UI](#client-admin-ui)
-        * [Dynamic Proxy Management (Store)](#dynamic-proxy-management-store)
+    * [Dynamic Proxy Management (Store)](#dynamic-proxy-management-store)
     * [Monitor](#monitor)
         * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
@@ -552,56 +550,9 @@ localPort = 22
 remotePort = 6000
 ```
 
-### Server Dashboard
+### Dynamic Proxy Management (Store)
 
-Check frp's status and proxies' statistics information by Dashboard.
-
-Configure a port for dashboard to enable this feature:
-
-```toml
-# The default value is 127.0.0.1. Change it to 0.0.0.0 when you want to access it from a public network.
-webServer.addr = "0.0.0.0"
-webServer.port = 7500
-# dashboard's username and password are both optional
-webServer.user = "admin"
-webServer.password = "admin"
-```
-
-Then visit `http://[serverAddr]:7500` to see the dashboard, with username and password both being `admin`.
-
-Additionally, you can use HTTPS port by using your domains wildcard or normal SSL certificate:
-
-```toml
-webServer.port = 7500
-# dashboard's username and password are both optional
-webServer.user = "admin"
-webServer.password = "admin"
-webServer.tls.certFile = "server.crt"
-webServer.tls.keyFile = "server.key"
-```
-
-Then visit `https://[serverAddr]:7500` to see the dashboard in secure HTTPS connection, with username and password both being `admin`.
-
-![dashboard](/doc/pic/dashboard.png)
-
-### Client Admin UI
-
-The Client Admin UI helps you check and manage frpc's configuration and proxies.
-
-Configure an address for admin UI to enable this feature:
-
-```toml
-webServer.addr = "127.0.0.1"
-webServer.port = 7400
-webServer.user = "admin"
-webServer.password = "admin"
-```
-
-Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin`.
-
-#### Dynamic Proxy Management (Store)
-
-You can dynamically create, update, and delete proxies and visitors at runtime through the Web UI or API, without restarting frpc.
+You can dynamically create, update, and delete proxies and visitors at runtime through the API, without restarting frpc.
 
 To enable this feature, configure `store.path` to specify a file for persisting the configurations:
 
@@ -616,7 +567,7 @@ Proxies and visitors managed through the Store are saved to disk and automatical
 
 When web server is enabled, frps will save monitor data in cache for 7 days. It will be cleared after process restart.
 
-Both frps and frpc support a separate `metricsServer` listener for health checks and optional profiling, without enabling the dashboard or admin API. It is disabled by default (`metricsServer.port = 0`) and binds to `127.0.0.1` unless configured otherwise.
+Both frps and frpc support a separate `metricsServer` listener for health checks and optional profiling, without enabling the admin API. It is disabled by default (`metricsServer.port = 0`) and binds to `127.0.0.1` unless configured otherwise.
 
 `/healthz` returns an empty HTTP 200 response without authentication. It checks that the HTTP server is responding; it does not indicate whether frpc is connected to frps or whether proxies are ready.
 
@@ -640,7 +591,7 @@ Scrape `http://127.0.0.1:7501/metrics` using these Basic Auth credentials. This 
 
 Set `metricsServer.pprofEnable = true` to expose `/debug/pprof/` and profiling endpoints on this listener. `/debug/pprof/cmdline` is excluded. frpc serves `/metrics` on this listener too, with Go runtime metrics only: no proxy, traffic or client data, and the same set of metrics on every platform.
 
-The `/healthz`, `/metrics`, and pprof endpoints on `webServer` are deprecated but remain available. `enablePrometheus = true` still enables the legacy frps `/metrics` endpoint on the dashboard listener. Migrate health probes, Prometheus scrapes, and profiling to `metricsServer`; the dashboard and admin APIs continue to use `webServer`.
+The `/healthz`, `/metrics`, and pprof endpoints on `webServer` are deprecated but remain available. `enablePrometheus = true` still enables the legacy frps `/metrics` endpoint on the web server listener. Migrate health probes, Prometheus scrapes, and profiling to `metricsServer`; the admin APIs continue to use `webServer`.
 
 ### Authenticating the Client
 

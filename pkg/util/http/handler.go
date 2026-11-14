@@ -71,7 +71,7 @@ func MakeHTTPHandlerFunc(handler APIHandler) http.HandlerFunc {
 	}
 }
 
-// MakeHTTPHandlerFuncV2 wraps a handler response in the dashboard API v2 envelope.
+// MakeHTTPHandlerFuncV2 wraps a handler response in the admin API v2 envelope.
 func MakeHTTPHandlerFuncV2(handler APIHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := NewContext(w, r)

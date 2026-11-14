@@ -48,7 +48,7 @@ func (c *QUICOptions) Complete() {
 }
 
 type WebServerConfig struct {
-	// This is the network address to bind on for serving the web interface and API.
+	// This is the network address to bind on for serving the admin API.
 	// By default, this value is "127.0.0.1".
 	Addr string `json:"addr,omitempty"`
 	// Port specifies the port for the web server to listen on. If this
@@ -58,10 +58,6 @@ type WebServerConfig struct {
 	User string `json:"user,omitempty"`
 	// Password specifies the password that the admin server will use for login.
 	Password string `json:"password,omitempty"`
-	// AssetsDir specifies the local directory that the admin server will load
-	// resources from. If this value is "", assets will be loaded from the
-	// bundled executable using embed package.
-	AssetsDir string `json:"assetsDir,omitempty"`
 	// Enable golang pprof handlers.
 	PprofEnable bool `json:"pprofEnable,omitempty"`
 	// Enable TLS if TLSConfig is not nil.
@@ -73,7 +69,7 @@ func (c *WebServerConfig) Complete() {
 }
 
 // MetricsServerConfig configures a separate listener for health checks, metrics
-// (frps only), and optional pprof handlers. It does not serve the web interface.
+// (frps only), and optional pprof handlers. It does not serve the admin API.
 type MetricsServerConfig struct {
 	// Addr defaults to "127.0.0.1".
 	Addr string `json:"addr,omitempty"`

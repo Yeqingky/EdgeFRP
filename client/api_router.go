@@ -20,7 +20,6 @@ import (
 	adminapi "github.com/fatedier/frp/client/http"
 	"github.com/fatedier/frp/client/proxy"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
-	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
@@ -53,14 +52,6 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 		subRouter.HandleFunc("/api/store/visitors/{name}", httppkg.MakeHTTPHandlerFunc(apiController.UpdateStoreVisitor)).Methods(http.MethodPut)
 		subRouter.HandleFunc("/api/store/visitors/{name}", httppkg.MakeHTTPHandlerFunc(apiController.DeleteStoreVisitor)).Methods(http.MethodDelete)
 	}
-
-	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
-	subRouter.PathPrefix("/static/").Handler(
-		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
-	).Methods("GET")
-	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	})
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

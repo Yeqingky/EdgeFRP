@@ -71,7 +71,6 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.WebServer.Port = conf.AdminPort
 	out.WebServer.User = conf.AdminUser
 	out.WebServer.Password = conf.AdminPwd
-	out.WebServer.AssetsDir = conf.AssetsDir
 	out.WebServer.PprofEnable = conf.PprofEnable
 
 	out.DNSServer = conf.DNSServer
@@ -117,7 +116,6 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.WebServer.Port = conf.DashboardPort
 	out.WebServer.User = conf.DashboardUser
 	out.WebServer.Password = conf.DashboardPwd
-	out.WebServer.AssetsDir = conf.AssetsDir
 	if conf.DashboardTLSMode {
 		out.WebServer.TLS = &v1.TLSConfig{}
 		out.WebServer.TLS.CertFile = conf.DashboardTLSCertFile

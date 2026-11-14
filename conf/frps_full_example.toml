@@ -64,20 +64,18 @@ vhostHTTPSPort = 443
 # If tcpmuxPassthrough is true, frps won't do any update on traffic.
 # tcpmuxPassthrough = false
 
-# Configure the web server to enable the dashboard for frps.
-# dashboard is available only if webServer.port is set.
+# Configure the web server to enable the admin API for frps.
+# The admin API is available only if webServer.port is set.
 webServer.addr = "127.0.0.1"
 webServer.port = 7500
 webServer.user = "admin"
 webServer.password = "admin"
 # webServer.tls.certFile = "server.crt"
 # webServer.tls.keyFile = "server.key"
-# dashboard assets directory(only for debug mode)
-# webServer.assetsDir = "./static"
 
 # Deprecated: use metricsServer.pprofEnable for authenticated profiling.
-# Enable golang pprof handlers in dashboard listener.
-# Dashboard port must be set first
+# Enable golang pprof handlers in web server listener.
+# webServer.port must be set first
 webServer.pprofEnable = false
 
 # Deprecated: enablePrometheus exports /metrics on webServer only.
