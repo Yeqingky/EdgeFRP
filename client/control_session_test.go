@@ -85,7 +85,7 @@ func newTestControlSessionDialer(t *testing.T, connector Connector, clientSpec *
 
 // serverV2Login performs the server side of the v2 handshake and returns the
 // negotiated message read writer.
-func serverV2Login(t *testing.T, conn net.Conn) (*wire.Conn, *msg.V2ReadWriter) {
+func serverV2Login(t *testing.T, conn net.Conn) *msg.V2ReadWriter {
 	t.Helper()
 
 	magic := make([]byte, len(wire.MagicV2))
@@ -112,7 +112,7 @@ func serverV2Login(t *testing.T, conn net.Conn) (*wire.Conn, *msg.V2ReadWriter) 
 	require.NoError(t, err)
 	require.NoError(t, wireConn.WriteFrame(serverHelloFrame))
 
-	return wireConn, rw
+	return rw
 }
 
 func TestControlSessionDialerDial(t *testing.T) {
@@ -122,7 +122,7 @@ func TestControlSessionDialerDial(t *testing.T) {
 	connector := &testConnector{conn: &trackingConn{Conn: clientRaw}}
 	serverErrCh := make(chan error, 1)
 	go func() {
-		_, rw := serverV2Login(t, serverRaw)
+		rw := serverV2Login(t, serverRaw)
 		serverErrCh <- rw.WriteMsg(&msg.LoginResp{RunID: "run-v2"})
 	}()
 
@@ -147,7 +147,7 @@ func TestControlSessionDialerDialLoginErrorClosesResources(t *testing.T) {
 	connector := &testConnector{conn: clientConn}
 	serverErrCh := make(chan error, 1)
 	go func() {
-		_, rw := serverV2Login(t, serverRaw)
+		rw := serverV2Login(t, serverRaw)
 		serverErrCh <- rw.WriteMsg(&msg.LoginResp{Error: "login denied"})
 	}()
 
@@ -167,7 +167,7 @@ func TestControlSessionDialerDialSSHTunnelSkipsControlEncryption(t *testing.T) {
 	connector := &testConnector{conn: &trackingConn{Conn: clientRaw}}
 	serverErrCh := make(chan error, 1)
 	go func() {
-		_, rw := serverV2Login(t, serverRaw)
+		rw := serverV2Login(t, serverRaw)
 		require.NoError(t, rw.WriteMsg(&msg.LoginResp{RunID: "run-ssh-tunnel"}))
 
 		_ = serverRaw.SetReadDeadline(time.Now().Add(time.Second))

@@ -84,8 +84,9 @@ func TestServiceConfigManagerReloadVirtualNetRuntimeDependency(t *testing.T) {
 			wantRuntimeDependency: true,
 		},
 		{
-			name:                  "VirtualNet visitor without startup runtime",
-			nextConfig:            `{"visitors":[{"name":"vnet-visitor","type":"stcp","serverName":"vnet-server","secretKey":"secret","bindPort":-1,"plugin":{"type":"virtual_net","destinationIP":"100.86.0.1"}}]}`,
+			name: "VirtualNet visitor without startup runtime",
+			nextConfig: `{"visitors":[{"name":"vnet-visitor","type":"stcp","serverName":"vnet-server",` +
+				`"secretKey":"secret","bindPort":-1,"plugin":{"type":"virtual_net","destinationIP":"100.86.0.1"}}]}`,
 			wantRuntimeDependency: true,
 		},
 		{

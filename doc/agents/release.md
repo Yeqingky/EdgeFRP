@@ -25,12 +25,12 @@ Update the version string in `pkg/util/version/version.go`:
 var version = "0.X.0"
 ```
 
-Commit and push to `master`:
+Commit and push to `main`:
 
 ```bash
 git add pkg/util/version/version.go Release.md
 git commit -m "bump version to vX.Y.Z"
-git push origin master
+git push origin main
 ```
 
 ## 3. Pre-release Validation
@@ -44,8 +44,8 @@ make e2e
 ## 4. Tag the Release
 
 ```bash
-git checkout master
-git pull origin master
+git checkout main
+git pull origin main
 git tag -a vX.Y.Z -m "bump version"
 git push origin vX.Y.Z
 ```

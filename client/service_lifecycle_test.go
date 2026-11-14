@@ -143,7 +143,7 @@ func TestServiceShutdownAfterLogin(t *testing.T) {
 			defer svr.Close()
 			peerDone := make(chan error, 1)
 			go func() {
-				_, rw := serverV2Login(t, serverConn)
+				rw := serverV2Login(t, serverConn)
 				if err := rw.WriteMsg(&msg.LoginResp{RunID: "lifecycle-test"}); err != nil {
 					peerDone <- err
 					return

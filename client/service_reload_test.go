@@ -65,7 +65,7 @@ func newReloadTestService(t *testing.T, beforeLogin func()) *Service {
 			})
 			go func() {
 				defer close(peerDone)
-				_, rw := serverV2Login(t, serverConn)
+				rw := serverV2Login(t, serverConn)
 				if beforeLogin != nil {
 					beforeLogin()
 				}
