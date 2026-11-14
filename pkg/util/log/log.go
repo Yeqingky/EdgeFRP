@@ -16,7 +16,10 @@ package log
 
 import (
 	"bytes"
+	"io"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/fatedier/golib/log"
 )
@@ -31,6 +34,91 @@ var (
 
 var Logger *log.Logger
 
+var (
+	fanoutMu      sync.RWMutex
+	currentFanout *fanoutWriter
+)
+
+// Sink receives formatted log lines together with their level and timestamp.
+type Sink interface {
+	WriteLog(p []byte, level log.Level, when time.Time) (int, error)
+	Close() error
+}
+
+type fanoutWriter struct {
+	mu    sync.RWMutex
+	base  io.Writer
+	sinks []Sink
+}
+
+func newFanoutWriter(base io.Writer) *fanoutWriter {
+	if base == nil {
+		base = os.Stdout
+	}
+	return &fanoutWriter{base: base}
+}
+
+func (w *fanoutWriter) Write(p []byte) (int, error) {
+	w.mu.RLock()
+	base := w.base
+	w.mu.RUnlock()
+	return base.Write(p)
+}
+
+func (w *fanoutWriter) WriteLog(p []byte, level log.Level, when time.Time) (int, error) {
+	w.mu.RLock()
+	base := w.base
+	sinks := append([]Sink(nil), w.sinks...)
+	w.mu.RUnlock()
+
+	if lw, ok := base.(log.Writer); ok {
+		_, _ = lw.WriteLog(p, level, when)
+	} else {
+		_, _ = base.Write(p)
+	}
+	for _, sink := range sinks {
+		_, _ = sink.WriteLog(p, level, when)
+	}
+	return len(p), nil
+}
+
+func (w *fanoutWriter) addSink(sink Sink) {
+	w.mu.Lock()
+	w.sinks = append(w.sinks, sink)
+	w.mu.Unlock()
+}
+
+func (w *fanoutWriter) removeSink(sink Sink) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, s := range w.sinks {
+		if s == sink {
+			w.sinks = append(w.sinks[:i], w.sinks[i+1:]...)
+			return
+		}
+	}
+}
+
+// AddSink adds an extra log sink to the logger initialized by InitLogger.
+func AddSink(sink Sink) {
+	fanoutMu.RLock()
+	fanout := currentFanout
+	fanoutMu.RUnlock()
+	if fanout != nil {
+		fanout.addSink(sink)
+	}
+}
+
+// RemoveSink removes a sink previously added by AddSink.
+func RemoveSink(sink Sink) {
+	fanoutMu.RLock()
+	fanout := currentFanout
+	fanoutMu.RUnlock()
+	if fanout != nil {
+		fanout.removeSink(sink)
+	}
+}
+
 func init() {
 	Logger = log.New(
 		log.WithCaller(true),
@@ -40,14 +128,14 @@ func init() {
 }
 
 func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bool) {
-	options := []log.Option{}
+	var base io.Writer
 	if logPath == "console" {
 		if !disableLogColor {
-			options = append(options,
-				log.WithOutput(log.NewConsoleWriter(log.ConsoleConfig{
-					Colorful: true,
-				}, os.Stdout)),
-			)
+			base = log.NewConsoleWriter(log.ConsoleConfig{
+				Colorful: true,
+			}, os.Stdout)
+		} else {
+			base = os.Stdout
 		}
 	} else {
 		writer := log.NewRotateFileWriter(log.RotateFileConfig{
@@ -56,15 +144,28 @@ func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bo
 			MaxDays:  maxDays,
 		})
 		writer.Init()
-		options = append(options, log.WithOutput(writer))
+		base = writer
+	}
+
+	fanout := newFanoutWriter(base)
+	fanoutMu.Lock()
+	previous := currentFanout
+	currentFanout = fanout
+	fanoutMu.Unlock()
+	if previous != nil {
+		previous.mu.RLock()
+		sinks := append([]Sink(nil), previous.sinks...)
+		previous.mu.RUnlock()
+		for _, sink := range sinks {
+			_ = sink.Close()
+		}
 	}
 
 	level, err := log.ParseLevel(levelStr)
 	if err != nil {
 		level = log.InfoLevel
 	}
-	options = append(options, log.WithLevel(level))
-	Logger = Logger.WithOptions(options...)
+	Logger = Logger.WithOptions(log.WithOutput(fanout), log.WithLevel(level))
 }
 
 func Errorf(format string, v ...any) {

@@ -146,6 +146,26 @@ func startServiceWithAggregator(
 ) error {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
+	if cfg.Log.Report != nil && cfg.Log.Report.URL != "" {
+		token := cfg.Log.Report.Token
+		if token == "" {
+			token = cfg.Auth.Token
+		}
+		reporter, err := log.NewHTTPReporter(log.HTTPReporterConfig{
+			URL:          cfg.Log.Report.URL,
+			Token:        token,
+			MaxQueue:     cfg.Log.Report.MaxQueue,
+			MaxBytes:     cfg.Log.Report.MaxBytes,
+			MaxPerSecond: cfg.Log.Report.MaxPerSecond,
+		})
+		if err != nil {
+			log.Warnf("start log reporter failed: %v", err)
+		} else if reporter != nil {
+			log.AddSink(reporter)
+			defer reporter.Close()
+		}
+	}
+
 	if cfgFile != "" {
 		log.Infof("start frpc service for config file [%s] with aggregated configuration", cfgFile)
 		defer log.Infof("frpc service for config file [%s] stopped", cfgFile)

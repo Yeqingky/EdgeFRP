@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -69,6 +70,18 @@ func ValidatePort(port int, fieldPath string) error {
 func validateLogConfig(c *v1.LogConfig) error {
 	if !slices.Contains(SupportedLogLevels, c.Level) {
 		return fmt.Errorf("invalid log level, optional values are %v", SupportedLogLevels)
+	}
+	if c.Report != nil && c.Report.URL != "" {
+		u, err := url.Parse(c.Report.URL)
+		if err != nil {
+			return fmt.Errorf("invalid log.report.url: %w", err)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return fmt.Errorf("log.report.url must use http or https")
+		}
+		if u.Host == "" {
+			return fmt.Errorf("log.report.url must include a host")
+		}
 	}
 	return nil
 }

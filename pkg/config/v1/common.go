@@ -134,12 +134,33 @@ type LogConfig struct {
 	MaxDays int64 `json:"maxDays"`
 	// DisablePrintColor disables log colors when log.to is "console".
 	DisablePrintColor bool `json:"disablePrintColor,omitempty"`
+	// Report configures optional log reporting to an external HTTP endpoint.
+	Report *LogReportConfig `json:"report,omitempty"`
+}
+
+// LogReportConfig configures the frpc HTTP log reporter.
+type LogReportConfig struct {
+	URL          string `json:"url,omitempty"`
+	Token        string `json:"token,omitempty"`
+	MaxQueue     int    `json:"maxQueue,omitempty"`
+	MaxBytes     int    `json:"maxBytes,omitempty"`
+	MaxPerSecond int    `json:"maxPerSecond,omitempty"`
+}
+
+func (c *LogReportConfig) Complete() {
+	if c == nil {
+		return
+	}
+	c.MaxQueue = util.EmptyOr(c.MaxQueue, 1024)
+	c.MaxBytes = util.EmptyOr(c.MaxBytes, 8192)
+	c.MaxPerSecond = util.EmptyOr(c.MaxPerSecond, 50)
 }
 
 func (c *LogConfig) Complete() {
 	c.To = util.EmptyOr(c.To, "console")
 	c.Level = util.EmptyOr(c.Level, "info")
 	c.MaxDays = util.EmptyOr(c.MaxDays, 3)
+	c.Report.Complete()
 }
 
 type HTTPPluginOptions struct {
