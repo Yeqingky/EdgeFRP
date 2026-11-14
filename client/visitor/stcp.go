@@ -31,11 +31,15 @@ type STCPVisitor struct {
 }
 
 func (sv *STCPVisitor) Run() (err error) {
-	if sv.cfg.BindPort > 0 {
+	if sv.cfg.BindUnix != "" {
+		sv.l, err = net.Listen("unix", sv.cfg.BindUnix)
+	} else if sv.cfg.BindPort > 0 {
 		sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
-		if err != nil {
-			return
-		}
+	}
+	if err != nil {
+		return err
+	}
+	if sv.l != nil {
 		go sv.acceptLoop(sv.l, "stcp local", sv.handleConn)
 	}
 

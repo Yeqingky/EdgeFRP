@@ -46,6 +46,9 @@ type ClientCommonConfig struct {
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `json:"serverPort,omitempty"`
+	// ServerAddrs specifies multiple frps endpoints. When set, frpc connects
+	// to every endpoint and creates the same proxies on each of them.
+	ServerAddrs []ServerAddrConfig `json:"serverAddrs,omitempty"`
 	// STUN server to help penetrate NAT hole.
 	NatHoleSTUNServer string `json:"natHoleStunServer,omitempty"`
 	// DNSServer specifies a DNS server address for FRPC to use. If this value
@@ -80,6 +83,11 @@ type ClientCommonConfig struct {
 	Store StoreConfig `json:"store,omitempty"`
 }
 
+type ServerAddrConfig struct {
+	Addr string `json:"addr"`
+	Port int    `json:"port"`
+}
+
 type RemoteConfigConfig struct {
 	URL      string `json:"url,omitempty"`
 	Token    string `json:"token,omitempty"`
@@ -95,6 +103,10 @@ func (c *RemoteConfigConfig) Complete() {
 func (c *ClientCommonConfig) Complete() error {
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
 	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
+	for i := range c.ServerAddrs {
+		c.ServerAddrs[i].Addr = util.EmptyOr(c.ServerAddrs[i].Addr, c.ServerAddr)
+		c.ServerAddrs[i].Port = util.EmptyOr(c.ServerAddrs[i].Port, c.ServerPort)
+	}
 	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, new(true))
 	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
 

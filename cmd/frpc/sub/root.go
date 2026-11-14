@@ -141,15 +141,14 @@ func runClientWithAggregator(result *config.ClientConfigLoadResult, unsafeFeatur
 		return err
 	}
 
+	if len(result.Common.ServerAddrs) > 0 {
+		return startMultiClient(result, proxyCfgs, visitorCfgs, unsafeFeatures, cfgFilePath)
+	}
+
 	return startServiceWithAggregator(result.Common, aggregator, unsafeFeatures, cfgFilePath)
 }
 
-func startServiceWithAggregator(
-	cfg *v1.ClientCommonConfig,
-	aggregator *source.Aggregator,
-	unsafeFeatures *security.UnsafeFeatures,
-	cfgFile string,
-) error {
+func initClientLogging(cfg *v1.ClientCommonConfig) func() {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
 	if cfg.Log.Report != nil && cfg.Log.Report.URL != "" {
@@ -168,9 +167,20 @@ func startServiceWithAggregator(
 			log.Warnf("start log reporter failed: %v", err)
 		} else if reporter != nil {
 			log.AddSink(reporter)
-			defer reporter.Close()
+			return func() { _ = reporter.Close() }
 		}
 	}
+	return func() {}
+}
+
+func startServiceWithAggregator(
+	cfg *v1.ClientCommonConfig,
+	aggregator *source.Aggregator,
+	unsafeFeatures *security.UnsafeFeatures,
+	cfgFile string,
+) error {
+	closeLog := initClientLogging(cfg)
+	defer closeLog()
 
 	if cfgFile != "" {
 		log.Infof("start frpc service for config file [%s] with aggregated configuration", cfgFile)

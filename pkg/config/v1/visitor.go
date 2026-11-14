@@ -118,6 +118,7 @@ var _ VisitorConfigurer = &STCPVisitorConfig{}
 
 type STCPVisitorConfig struct {
 	VisitorBaseConfig
+	BindUnix string `json:"bindUnix,omitempty"`
 }
 
 func (c *STCPVisitorConfig) Clone() VisitorConfigurer {

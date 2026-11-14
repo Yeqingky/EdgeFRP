@@ -45,6 +45,10 @@ func pullRemoteConfig(cfg *v1.ClientCommonConfig, cfgFile string, svr *client.Se
 }
 
 func pullRemoteConfigWithReload(cfg *v1.ClientCommonConfig, cfgFile string, reload func() error) {
+	pullRemoteConfigWithRevocation(cfg, cfgFile, reload, false, nil)
+}
+
+func pullRemoteConfigWithRevocation(cfg *v1.ClientCommonConfig, cfgFile string, reload func() error, forceReload bool, revoked func()) {
 	endpoint, err := url.Parse(cfg.RemoteConfig.URL)
 	if err != nil {
 		log.Warnf("remote config: invalid url: %v", err)
@@ -63,6 +67,10 @@ func pullRemoteConfigWithReload(cfg *v1.ClientCommonConfig, cfgFile string, relo
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized && revoked != nil {
+		revoked()
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
 		log.Warnf("remote config: unexpected status %d", resp.StatusCode)
 		return
@@ -79,6 +87,11 @@ func pullRemoteConfigWithReload(cfg *v1.ClientCommonConfig, cfgFile string, relo
 
 	current, err := os.ReadFile(cfgFile)
 	if err == nil && bytes.Equal(current, data) {
+		if forceReload {
+			if err := reload(); err != nil {
+				log.Warnf("remote config: reload failed: %v", err)
+			}
+		}
 		return
 	}
 
