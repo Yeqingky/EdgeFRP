@@ -25,12 +25,12 @@ Update the version string in `pkg/util/version/version.go`:
 var version = "0.X.0"
 ```
 
-Commit and push to `dev`:
+Commit and push to `master`:
 
 ```bash
 git add pkg/util/version/version.go Release.md
 git commit -m "bump version to vX.Y.Z"
-git push origin dev
+git push origin master
 ```
 
 ## 3. Pre-release Validation
@@ -41,17 +41,7 @@ Run the standard e2e suite locally:
 make e2e
 ```
 
-## 4. Merge dev → master
-
-Create a PR from `dev` to `master`:
-
-```bash
-gh pr create --base master --head dev --title "bump version"
-```
-
-Wait for CI to pass, then merge using **merge commit** (not squash).
-
-## 5. Tag the Release
+## 4. Tag the Release
 
 ```bash
 git checkout master
@@ -60,13 +50,9 @@ git tag -a vX.Y.Z -m "bump version"
 git push origin vX.Y.Z
 ```
 
-## 6. Trigger GoReleaser
+Pushing the `v*` tag triggers the `goreleaser` workflow automatically.
 
-Manually trigger the `goreleaser` workflow in GitHub Actions:
-
-```bash
-gh workflow run goreleaser --ref master
-```
+## 5. GoReleaser
 
 GoReleaser will:
 1. Run `package.sh` to cross-compile all platforms and create archives
