@@ -41,6 +41,10 @@ func startRemoteConfigPoller(ctx context.Context, cfg *v1.ClientCommonConfig, cf
 }
 
 func pullRemoteConfig(cfg *v1.ClientCommonConfig, cfgFile string, svr *client.Service) {
+	pullRemoteConfigWithReload(cfg, cfgFile, svr.ReloadFromFile)
+}
+
+func pullRemoteConfigWithReload(cfg *v1.ClientCommonConfig, cfgFile string, reload func() error) {
 	endpoint, err := url.Parse(cfg.RemoteConfig.URL)
 	if err != nil {
 		log.Warnf("remote config: invalid url: %v", err)
@@ -105,7 +109,7 @@ func pullRemoteConfig(cfg *v1.ClientCommonConfig, cfgFile string, svr *client.Se
 		return
 	}
 
-	if err := svr.ReloadFromFile(); err != nil {
+	if err := reload(); err != nil {
 		if len(current) > 0 {
 			_ = os.WriteFile(cfgFile, current, 0600)
 		}
