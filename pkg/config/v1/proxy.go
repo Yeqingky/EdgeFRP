@@ -120,7 +120,7 @@ type ProxyBaseConfig struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 	// Enabled controls whether this proxy is enabled. nil or true means enabled, false means disabled.
-	// This allows individual control over each proxy, complementing the global "start" field.
+	// This allows individual control over each proxy.
 	Enabled     *bool             `json:"enabled,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Transport   ProxyTransport    `json:"transport,omitempty"`

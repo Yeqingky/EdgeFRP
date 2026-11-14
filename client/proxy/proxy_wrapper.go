@@ -100,7 +100,6 @@ func NewWrapper(
 	eventHandler event.Handler,
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
-	udpPacketCodec string,
 ) *Wrapper {
 	baseInfo := cfg.GetBaseConfig()
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(baseInfo.Name)
@@ -129,7 +128,7 @@ func NewWrapper(
 		xl.Tracef("enable health check monitor")
 	}
 
-	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, encryptionKey, pw.msgTransporter, pw.vnetController, udpPacketCodec)
+	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, encryptionKey, pw.msgTransporter, pw.vnetController)
 	return pw
 }
 

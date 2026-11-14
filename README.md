@@ -489,7 +489,7 @@ Note that it may not work with all types of NAT devices. You might want to fallb
 
 ### Configuration Files
 
-Since v0.52.0, we support TOML, YAML, and JSON for configuration. Please note that INI is deprecated and will be removed in future releases. New features will only be available in TOML, YAML, or JSON. Users wanting these new features should switch their configuration format accordingly.
+frp supports TOML, YAML, and JSON for configuration.
 
 Read the full example configuration files to find out even more features not described here.
 
@@ -666,9 +666,7 @@ transport.useCompression = true
 
 #### TLS
 
-Since v0.50.0, the default value of `transport.tls.enable` and `transport.tls.disableCustomTLSFirstByte` has been changed to true, and tls is enabled by default.
-
-For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection. This only takes effect when you set `transport.tls.disableCustomTLSFirstByte` to false.
+Since v0.50.0, the default value of `transport.tls.enable` has been changed to true, and tls is enabled by default.
 
 To **enforce** `frps` to only accept TLS connections - configure `transport.tls.force = true` in `frps.toml`. **This is optional.**
 
@@ -787,15 +785,7 @@ status and logs; reload still succeeds. A successful retry clears the error.
 Generated self-signed certificates are unchanged, and Store API updates do not
 refresh certificates on unchanged proxies.
 
-**Note that global client parameters won't be modified except 'start'.**
-
-`start` is a global allowlist evaluated after all sources are merged (config file/include/store).
-If `start` is non-empty, any proxy or visitor not listed there will not be started, including
-entries created via Store API.
-
-`start` is kept mainly for compatibility and is generally not recommended for new configurations.
-Prefer per-proxy/per-visitor `enabled`, and keep `start` empty unless you explicitly want this
-global allowlist behavior.
+**Note that global client parameters won't be modified during reload.**
 
 You can run command `frpc verify -c ./frpc.toml` before reloading to check if there are config errors.
 
@@ -819,9 +809,7 @@ allowPorts = [
 
 ### Port Reuse
 
-`vhostHTTPPort` and `vhostHTTPSPort` in frps can use same port with `bindPort`. frps will detect the connection's protocol and handle it correspondingly.
-
-What you need to pay attention to is that if you want to configure `vhostHTTPSPort` and `bindPort` to the same port, you need to first set `transport.tls.disableCustomTLSFirstByte` to false.
+`vhostHTTPPort` in frps can use same port with `bindPort`. frps will detect the connection's protocol and handle it correspondingly.
 
 We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 

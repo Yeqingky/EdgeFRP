@@ -135,23 +135,17 @@ func newLoopbackYamuxPair(t *testing.T) (*fmux.Session, *fmux.Session, *delayedT
 	return client, server, gate
 }
 
-func loopbackCryptoConn(t *testing.T, conn net.Conn, protocol string, role netpkg.AEADCryptoRole) *Conn {
+func loopbackCryptoConn(t *testing.T, conn net.Conn, role netpkg.AEADCryptoRole) *Conn {
 	t.Helper()
-	var rw io.ReadWriter
-	var err error
-	if protocol == wire.ProtocolV2 {
-		rw, err = netpkg.NewAEADCryptoReadWriter(
-			conn, regressionKey, role, wire.AEADAlgorithmAES256GCM, []byte("isolated-test-transcript"))
-	} else {
-		rw, err = netpkg.NewCryptoReadWriter(conn, regressionKey)
-	}
+	rw, err := netpkg.NewAEADCryptoReadWriter(
+		conn, regressionKey, role, wire.AEADAlgorithmAES256GCM, []byte("isolated-test-transcript"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewConn(conn, NewReadWriter(rw, protocol))
+	return NewConn(conn, NewV2ReadWriter(rw))
 }
 
-func loopbackControlPair(t *testing.T, client, server *fmux.Session, protocol string) (*Conn, *Conn, *observedYamuxConn) {
+func loopbackControlPair(t *testing.T, client, server *fmux.Session) (*Conn, *Conn, *observedYamuxConn) {
 	t.Helper()
 	local, err := client.OpenStream()
 	if err != nil {
@@ -164,8 +158,8 @@ func loopbackControlPair(t *testing.T, client, server *fmux.Session, protocol st
 	observed := &observedYamuxConn{
 		Conn: local, writes: make(chan error, 16), readEntered: make(chan struct{}), closed: make(chan struct{}),
 	}
-	return loopbackCryptoConn(t, observed, protocol, netpkg.AEADCryptoRoleClient),
-		loopbackCryptoConn(t, remote, protocol, netpkg.AEADCryptoRoleServer), observed
+	return loopbackCryptoConn(t, observed, netpkg.AEADCryptoRoleClient),
+		loopbackCryptoConn(t, remote, netpkg.AEADCryptoRoleServer), observed
 }
 
 func loopbackReadReq(t *testing.T, conn *Conn) {
@@ -184,62 +178,60 @@ func loopbackReadReq(t *testing.T, conn *Conn) {
 }
 
 func TestDispatcherYamuxWriteTimeoutInterruptsRead(t *testing.T) {
-	for _, protocol := range []string{wire.ProtocolV1, wire.ProtocolV2} {
-		t.Run(protocol, func(t *testing.T) {
-			client, server, gate := newLoopbackYamuxPair(t)
-			var releaseOnce sync.Once
-			defer releaseOnce.Do(func() { close(gate.release) })
-			control, peer, observed := loopbackControlPair(t, client, server, protocol)
-			if err := control.WriteMsg(&ReqWorkConn{}); err != nil {
-				t.Fatal(err)
+	t.Run("v2", func(t *testing.T) {
+		client, server, gate := newLoopbackYamuxPair(t)
+		var releaseOnce sync.Once
+		defer releaseOnce.Do(func() { close(gate.release) })
+		control, peer, observed := loopbackControlPair(t, client, server)
+		if err := control.WriteMsg(&ReqWorkConn{}); err != nil {
+			t.Fatal(err)
+		}
+		loopbackReadReq(t, peer)
+		// Warm-up has completed, including all crypto header writes.
+		for len(observed.writes) > 0 {
+			<-observed.writes
+		}
+		d := NewDispatcher(control)
+		readExited := make(chan struct{})
+		go func() {
+			defer close(readExited)
+			d.readLoop()
+		}()
+		regressionAwait(t, observed.readEntered, "control reader entry")
+		gate.armed.Store(true)
+		// Queue before starting the writer so this Send cannot race its failure.
+		if err := d.Send(&ReqWorkConn{}); err != nil {
+			t.Fatal(err)
+		}
+		go d.sendLoop()
+		regressionAwait(t, gate.entered, "TCP write delay barrier")
+		select {
+		case err := <-observed.writes:
+			if !errors.Is(err, fmux.ErrConnectionWriteTimeout) {
+				t.Fatalf("stream write error: %v, want yamux connection write timeout", err)
 			}
-			loopbackReadReq(t, peer)
-			// Warm-up has completed, including all crypto header writes.
-			for len(observed.writes) > 0 {
-				<-observed.writes
-			}
-			d := NewDispatcher(control)
-			readExited := make(chan struct{})
-			go func() {
-				defer close(readExited)
-				d.readLoop()
-			}()
-			regressionAwait(t, observed.readEntered, "control reader entry")
-			gate.armed.Store(true)
-			// Queue before starting the writer so this Send cannot race its failure.
-			if err := d.Send(&ReqWorkConn{}); err != nil {
-				t.Fatal(err)
-			}
-			go d.sendLoop()
-			regressionAwait(t, gate.entered, "TCP write delay barrier")
-			select {
-			case err := <-observed.writes:
-				if !errors.Is(err, fmux.ErrConnectionWriteTimeout) {
-					t.Fatalf("stream write error: %v, want yamux connection write timeout", err)
-				}
-				t.Logf("production yamux write failed: %v", err)
-			case <-time.After(time.Second):
-				t.Fatal("yamux write did not time out")
-			}
-			regressionAwait(t, d.stopCh, "write failure stops sends")
-			if err := d.Send(&ReqWorkConn{}); !errors.Is(err, io.EOF) {
-				t.Fatalf("Send after stop: %v, want EOF", err)
-			}
-			releaseOnce.Do(func() { close(gate.release) })
-			regressionAwait(t, observed.closed, "control Close returns")
-			// peer never closes its write half: local yamux Close alone cannot
-			// interrupt Read. Neither a peer FIN nor session cleanup may help.
-			regressionAwait(t, d.Done(), "Done without peer FIN")
-			regressionAwait(t, readExited, "control readLoop exit without peer FIN")
-			if observed.closeCalls.Load() != 1 {
-				t.Fatalf("control closed %d times, want once", observed.closeCalls.Load())
-			}
-			// yamux enforces ConnectionWriteTimeout on the transport, so the
-			// failed write ends the whole session instead of leaving it blocked
-			// but alive.
-			regressionAwait(t, client.CloseChan(), "client yamux session close")
-			regressionAwait(t, server.CloseChan(), "server yamux session close")
-			t.Log("Done/readLoop exited without peer FIN; Close once; write timeout closed both yamux sessions")
-		})
-	}
+			t.Logf("production yamux write failed: %v", err)
+		case <-time.After(time.Second):
+			t.Fatal("yamux write did not time out")
+		}
+		regressionAwait(t, d.stopCh, "write failure stops sends")
+		if err := d.Send(&ReqWorkConn{}); !errors.Is(err, io.EOF) {
+			t.Fatalf("Send after stop: %v, want EOF", err)
+		}
+		releaseOnce.Do(func() { close(gate.release) })
+		regressionAwait(t, observed.closed, "control Close returns")
+		// peer never closes its write half: local yamux Close alone cannot
+		// interrupt Read. Neither a peer FIN nor session cleanup may help.
+		regressionAwait(t, d.Done(), "Done without peer FIN")
+		regressionAwait(t, readExited, "control readLoop exit without peer FIN")
+		if observed.closeCalls.Load() != 1 {
+			t.Fatalf("control closed %d times, want once", observed.closeCalls.Load())
+		}
+		// yamux enforces ConnectionWriteTimeout on the transport, so the
+		// failed write ends the whole session instead of leaving it blocked
+		// but alive.
+		regressionAwait(t, client.CloseChan(), "client yamux session close")
+		regressionAwait(t, server.CloseChan(), "server yamux session close")
+		t.Log("Done/readLoop exited without peer FIN; Close once; write timeout closed both yamux sessions")
+	})
 }

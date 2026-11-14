@@ -125,10 +125,6 @@ func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) erro
 	if err != nil {
 		return err
 	}
-	if result.IsLegacyFormat {
-		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
-			"please use yaml/json/toml format instead!\n")
-	}
 
 	return runClientWithAggregator(result, unsafeFeatures, cfgFilePath)
 }
@@ -167,7 +163,7 @@ func runClientWithAggregator(result *config.ClientConfigLoadResult, unsafeFeatur
 		return fmt.Errorf("failed to load config from sources: %w", err)
 	}
 
-	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(proxyCfgs, visitorCfgs)
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
 

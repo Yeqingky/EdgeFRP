@@ -221,13 +221,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 			}
 
 			pxy.workConn = netpkg.WrapReadWriteCloserToConn(rwc, workConn)
-			// Plain UDP payload follows the negotiated wire protocol for message framing.
-			payloadRW, err := msg.NewUDPPacketReadWriter(pxy.workConn, pxy.wireProtocol, pxy.udpPacketCodec)
-			if err != nil {
-				xl.Errorf("create UDP packet read writer: %v", err)
-				pxy.workConn.Close()
-				continue
-			}
+			payloadRW := msg.NewUDPPacketReadWriter(pxy.workConn)
 			payloadConn := msg.NewConn(pxy.workConn, payloadRW)
 			ctx, cancel := context.WithCancel(context.Background())
 			go workConnReaderFn(payloadConn)

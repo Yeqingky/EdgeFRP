@@ -9,6 +9,7 @@
 ## Improvements
 
 * Removed the bundled frps dashboard and frpc admin UI. `webServer` now serves only the admin API, and the `assetsDir` option is gone.
+* Removed legacy frpc/frps compatibility: wire protocol v1, legacy INI configuration, the protocol and TLS first-byte compatibility switches, legacy `--dashboard_*` flags, the global `start` allowlist, optional visitor `runID`, and the v2-to-v1 UDP packet codec fallback. The control protocol is always v2 and configuration uses TOML, YAML, or JSON.
 
 ## Fixes
 

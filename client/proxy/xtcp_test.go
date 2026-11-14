@@ -24,36 +24,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/msg"
-	"github.com/fatedier/frp/pkg/proto/wire"
 )
 
-func TestReadNatHoleSidUsesSelectedWireProtocol(t *testing.T) {
-	for _, tc := range []struct {
-		name         string
-		wireProtocol string
-	}{
-		{name: "v2", wireProtocol: wire.ProtocolV2},
-		{name: "v1", wireProtocol: wire.ProtocolV1},
-		{name: "default", wireProtocol: ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			client, server := net.Pipe()
-			defer client.Close()
-			defer server.Close()
-			setPipeDeadline(t, client, server)
+func TestReadNatHoleSid(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+	setPipeDeadline(t, client, server)
 
-			errCh := make(chan error, 1)
-			go func() {
-				writer := msg.NewConn(server, msg.NewReadWriter(server, tc.wireProtocol))
-				errCh <- writer.WriteMsg(&msg.NatHoleSid{Sid: "sid"})
-			}()
+	errCh := make(chan error, 1)
+	go func() {
+		writer := msg.NewConn(server, msg.NewV2ReadWriter(server))
+		errCh <- writer.WriteMsg(&msg.NatHoleSid{Sid: "sid"})
+	}()
 
-			out, err := readNatHoleSid(client, tc.wireProtocol)
-			require.NoError(t, err)
-			require.Equal(t, "sid", out.Sid)
-			require.NoError(t, <-errCh)
-		})
-	}
+	out, err := readNatHoleSid(client)
+	require.NoError(t, err)
+	require.Equal(t, "sid", out.Sid)
+	require.NoError(t, <-errCh)
 }
 
 func setPipeDeadline(t *testing.T, conns ...net.Conn) {

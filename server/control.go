@@ -33,6 +33,7 @@ import (
 	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/proto/wire"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/wait"
@@ -207,7 +208,7 @@ func (cm *ControlManager) Activate(ctl *Control) (bool, error) {
 		loginMsg.Hostname,
 		loginMsg.Version,
 		remoteAddr,
-		ctl.sessionCtx.WireProtocol,
+		wire.ProtocolV2,
 		uint64(entry.id),
 	)
 	if conflict {
@@ -287,7 +288,7 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 // admitVisitorByRunID commits a visitor admission against the current running
 // control while its run and lifecycle ownership are held. The callback must
 // only perform the in-memory, buffered visitor admission.
-func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user, wireProtocol, udpPacketCodec string) error) (bool, error) {
+func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user string) error) (bool, error) {
 	entry, ok := cm.lockCurrentRun(runID, false)
 	if !ok {
 		return false, nil
@@ -300,7 +301,7 @@ func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user, wir
 	if ctl.state != controlStateRunning {
 		return false, nil
 	}
-	return true, admit(ctl.sessionCtx.LoginMsg.User, ctl.sessionCtx.WireProtocol, ctl.sessionCtx.UDPPacketCodec)
+	return true, admit(ctl.sessionCtx.LoginMsg.User)
 }
 
 // RegisterWorkConn transfers conn to ctl only if ctl is still the current
@@ -374,9 +375,6 @@ type SessionContext struct {
 	LoginMsg *msg.Login
 	// server configuration
 	ServerCfg *v1.ServerConfig
-	// negotiated wire protocol for this client session
-	WireProtocol   string
-	UDPPacketCodec string
 }
 
 type controlState uint8
@@ -849,8 +847,6 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.sessionCtx.ServerCfg,
 		EncryptionKey:      ctl.sessionCtx.EncryptionKey,
-		WireProtocol:       ctl.sessionCtx.WireProtocol,
-		UDPPacketCodec:     ctl.sessionCtx.UDPPacketCodec,
 	})
 	if err != nil {
 		return remoteAddr, err

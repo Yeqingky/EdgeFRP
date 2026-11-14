@@ -212,8 +212,7 @@ func validClientConfigWithAuth(auth v1.AuthClientConfig) *v1.ClientCommonConfig 
 			Level: "info",
 		},
 		Transport: v1.ClientTransportConfig{
-			Protocol:     "tcp",
-			WireProtocol: "v1",
+			Protocol: "tcp",
 		},
 	}
 }

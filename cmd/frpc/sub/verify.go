@@ -34,7 +34,7 @@ func verifyClientConfig(
 	strict bool,
 	unsafeFeatures *security.UnsafeFeatures,
 ) (validation.Warning, error) {
-	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(configFile, strict)
+	cliCfg, proxyCfgs, visitorCfgs, err := config.LoadClientConfig(configFile, strict)
 	if err != nil {
 		return nil, err
 	}

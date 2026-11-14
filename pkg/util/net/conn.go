@@ -242,21 +242,6 @@ func (conn *wrapQuicStream) Close() error {
 	return conn.Stream.Close()
 }
 
-func NewCryptoReadWriter(rw io.ReadWriter, key []byte) (io.ReadWriter, error) {
-	encReader := libcrypto.NewReader(rw, key)
-	encWriter, err := libcrypto.NewWriter(rw, key)
-	if err != nil {
-		return nil, err
-	}
-	return struct {
-		io.Reader
-		io.Writer
-	}{
-		Reader: encReader,
-		Writer: encWriter,
-	}, nil
-}
-
 type AEADCryptoRole int
 
 const (

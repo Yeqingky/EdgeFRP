@@ -74,7 +74,7 @@ func TestNewControlPoolCountBoundaries(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := newDeadlineReadConn()
-			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			msgConn := msg.NewConn(conn, msg.NewV2ReadWriter(conn))
 			cfg := &v1.ServerConfig{}
 			cfg.Transport.MaxPoolCount = tc.maxPoolCount
 
@@ -388,7 +388,7 @@ func newLifecycleTestControl(
 ) (*Control, *deadlineReadConn) {
 	t.Helper()
 	conn := newDeadlineReadConn()
-	msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+	msgConn := msg.NewConn(conn, msg.NewV2ReadWriter(conn))
 	ctl, err := NewControl(context.Background(), &SessionContext{
 		RC:            &controller.ResourceController{},
 		PxyManager:    proxy.NewManager(),

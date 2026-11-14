@@ -29,13 +29,13 @@ func newGracefulCloseTestService() *Service {
 		sessionCtx: &SessionContext{
 			Common:    common,
 			RunID:     "graceful-close-race",
-			Conn:      msg.NewConn(clientConn, msg.NewV1ReadWriter(clientConn)),
+			Conn:      msg.NewConn(clientConn, msg.NewV2ReadWriter(clientConn)),
 			Connector: &gracefulCloseTestConnector{conn: serverConn},
 		},
 		doneCh: make(chan struct{}),
 	}
-	ctl.pm = proxy.NewManager(ctx, common, nil, nil, nil, "")
-	ctl.vm = visitor.NewManager(ctx, "graceful-close-race", common, nil, nil, nil, "")
+	ctl.pm = proxy.NewManager(ctx, common, nil, nil, nil)
+	ctl.vm = visitor.NewManager(ctx, "graceful-close-race", common, nil, nil, nil)
 	return &Service{ctl: ctl, cancel: context.CancelCauseFunc(func(error) {})}
 }
 

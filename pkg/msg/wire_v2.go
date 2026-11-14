@@ -37,7 +37,6 @@ const (
 	V2TypeNewVisitorConnResp uint16 = 10
 	V2TypePing               uint16 = 11
 	V2TypePong               uint16 = 12
-	V2TypeUDPPacket          uint16 = 13
 	V2TypeNatHoleVisitor     uint16 = 14
 	V2TypeNatHoleClient      uint16 = 15
 	V2TypeNatHoleResp        uint16 = 16
@@ -59,7 +58,6 @@ var v2MsgTypeMap = map[uint16]any{
 	V2TypeNewVisitorConnResp: NewVisitorConnResp{},
 	V2TypePing:               Ping{},
 	V2TypePong:               Pong{},
-	V2TypeUDPPacket:          UDPPacket{},
 	V2TypeNatHoleVisitor:     NatHoleVisitor{},
 	V2TypeNatHoleClient:      NatHoleClient{},
 	V2TypeNatHoleResp:        NatHoleResp{},

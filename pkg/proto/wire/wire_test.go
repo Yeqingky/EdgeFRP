@@ -63,52 +63,34 @@ func TestReadFrameRejectsOversizedPayload(t *testing.T) {
 	require.ErrorContains(t, err, "exceeds limit")
 }
 
-func TestCheckMagicV2ConsumesMagic(t *testing.T) {
+func TestWriteAndReadMagic(t *testing.T) {
 	client, server := net.Pipe()
 	defer server.Close()
 
 	want := []byte("payload")
 	go func() {
 		defer client.Close()
-		_, _ = client.Write(append([]byte(MagicV2), want...))
-	}()
-
-	out, isV2, err := CheckMagic(server)
-	require.NoError(t, err)
-	require.True(t, isV2)
-
-	got := make([]byte, len(want))
-	_, err = io.ReadFull(out, got)
-	require.NoError(t, err)
-	require.Equal(t, want, got)
-}
-
-func TestWriteMagicIfV2(t *testing.T) {
-	var buf bytes.Buffer
-	require.NoError(t, WriteMagicIfV2(&buf, ProtocolV1))
-	require.Empty(t, buf.Bytes())
-
-	require.NoError(t, WriteMagicIfV2(&buf, ProtocolV2))
-	require.Equal(t, []byte(MagicV2), buf.Bytes())
-}
-
-func TestCheckMagicV1PreservesReadBytes(t *testing.T) {
-	client, server := net.Pipe()
-	defer server.Close()
-
-	want := []byte("legacy payload")
-	go func() {
-		defer client.Close()
+		require.NoError(t, WriteMagic(client))
 		_, _ = client.Write(want)
 	}()
 
-	out, isV2, err := CheckMagic(server)
-	require.NoError(t, err)
-	require.False(t, isV2)
+	require.NoError(t, ReadMagic(server))
 
-	got, err := io.ReadAll(out)
+	got := make([]byte, len(want))
+	_, err := io.ReadFull(server, got)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+}
+
+func TestReadMagicRejectsInvalidPrefix(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	go func() {
+		_, _ = client.Write([]byte("not frp"))
+	}()
+	require.ErrorContains(t, ReadMagic(server), "invalid wire protocol magic")
 }
 
 func TestValidateClientHello(t *testing.T) {
@@ -148,38 +130,8 @@ func TestNewServerHelloSelectsFirstSupportedAEADAlgorithm(t *testing.T) {
 	serverHello, err := NewServerHello(hello)
 	require.NoError(t, err)
 	require.Equal(t, MessageCodecJSON, serverHello.Selected.Message.Codec)
-	require.Equal(t, UDPPacketCodecBinary, serverHello.Selected.Message.UDPPacketCodec)
 	require.Equal(t, AEADAlgorithmXChaCha20Poly1305, serverHello.Selected.Crypto.Algorithm)
 	require.Len(t, serverHello.Selected.Crypto.ServerRandom, CryptoRandomSize)
-}
-
-func TestUDPPacketCodecNegotiationFallbackAndValidation(t *testing.T) {
-	hello := mustClientHello(t, BootstrapInfo{})
-	serverHello, err := NewServerHello(hello)
-	require.NoError(t, err)
-	require.Equal(t, UDPPacketCodecBinary, serverHello.Selected.Message.UDPPacketCodec)
-	require.NoError(t, ValidateServerHelloForClient(hello, serverHello))
-
-	legacyHello := hello
-	legacyHello.Capabilities.Message.UDPPacketCodecs = nil
-	legacyServerHello, err := NewServerHello(legacyHello)
-	require.NoError(t, err)
-	require.Empty(t, legacyServerHello.Selected.Message.UDPPacketCodec)
-	require.NoError(t, ValidateServerHelloForClient(legacyHello, legacyServerHello))
-
-	unknownOffer := hello
-	unknownOffer.Capabilities.Message.UDPPacketCodecs = []string{"unknown"}
-	unknownServerHello, err := NewServerHello(unknownOffer)
-	require.NoError(t, err)
-	require.Empty(t, unknownServerHello.Selected.Message.UDPPacketCodec)
-
-	rejected := serverHello
-	rejected.Selected.Message.UDPPacketCodec = "unknown"
-	require.ErrorContains(t, ValidateServerHelloForClient(hello, rejected), "unsupported selected UDP packet codec")
-
-	unadvertised := serverHello
-	unadvertised.Selected.Message.UDPPacketCodec = UDPPacketCodecBinary
-	require.ErrorContains(t, ValidateServerHelloForClient(legacyHello, unadvertised), "was not advertised")
 }
 
 func TestNewClientCryptoContextValidatesServerHello(t *testing.T) {

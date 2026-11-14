@@ -65,12 +65,7 @@ func newReloadTestService(t *testing.T, beforeLogin func()) *Service {
 			})
 			go func() {
 				defer close(peerDone)
-				rw := msg.NewV1ReadWriter(serverConn)
-				var login msg.Login
-				if err := rw.ReadMsgInto(&login); err != nil {
-					t.Errorf("read login: %v", err)
-					return
-				}
+				_, rw := serverV2Login(t, serverConn)
 				if beforeLogin != nil {
 					beforeLogin()
 				}

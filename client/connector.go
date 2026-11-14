@@ -49,15 +49,11 @@ type MessageConnector interface {
 }
 
 type messageConnector struct {
-	connector    Connector
-	wireProtocol string
+	connector Connector
 }
 
-func newMessageConnector(connector Connector, wireProtocol string) *messageConnector {
-	return &messageConnector{
-		connector:    connector,
-		wireProtocol: wireProtocol,
-	}
+func newMessageConnector(connector Connector) *messageConnector {
+	return &messageConnector{connector: connector}
 }
 
 func (c *messageConnector) Connect() (*msg.Conn, error) {
@@ -65,11 +61,11 @@ func (c *messageConnector) Connect() (*msg.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = wire.WriteMagicIfV2(conn, c.wireProtocol); err != nil {
+	if err = wire.WriteMagic(conn); err != nil {
 		conn.Close()
 		return nil, err
 	}
-	return msg.NewConn(conn, msg.NewReadWriter(conn, c.wireProtocol)), nil
+	return msg.NewConn(conn, msg.NewV2ReadWriter(conn)), nil
 }
 
 func (c *messageConnector) Close() error {
@@ -218,9 +214,6 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 	case "websocket":
 		protocol = "tcp"
 		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, "")}))
-		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
-			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
-		}))
 		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
 	case "wss":
 		protocol = "tcp"
@@ -228,9 +221,6 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
 		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
 	default:
-		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
-			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
-		}))
 		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
 	}
 

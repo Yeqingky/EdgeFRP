@@ -155,88 +155,21 @@ func TestV2BinaryUDPPacketReadWriterPreservesOtherMessages(t *testing.T) {
 	require.Equal(t, V2TypePing, binary.BigEndian.Uint16(frame.Payload[:2]))
 }
 
-func TestV2BinaryUDPPacketReadWriterRoundTripAndCodecInvariant(t *testing.T) {
+func TestV2BinaryUDPPacketReadWriterRoundTrip(t *testing.T) {
 	in := &UDPPacket{Content: []byte("udp"), RemoteAddr: &net.UDPAddr{IP: net.ParseIP("203.0.113.9"), Port: 54321}}
-	var binaryStream bytes.Buffer
-	binaryWriter, err := NewUDPPacketReadWriter(&binaryStream, wire.ProtocolV2, wire.UDPPacketCodecBinary)
-	require.NoError(t, err)
-	require.NoError(t, binaryWriter.WriteMsg(in))
-	binaryReader, err := NewUDPPacketReadWriter(&binaryStream, wire.ProtocolV2, wire.UDPPacketCodecBinary)
-	require.NoError(t, err)
-	out, err := binaryReader.ReadMsg()
+	var stream bytes.Buffer
+	writer := NewUDPPacketReadWriter(&stream)
+	require.NoError(t, writer.WriteMsg(in))
+	reader := NewUDPPacketReadWriter(&stream)
+	out, err := reader.ReadMsg()
 	require.NoError(t, err)
 	require.Equal(t, in.Content, out.(*UDPPacket).Content)
 
-	for _, read := range []func(ReadWriter) error{
-		func(rw ReadWriter) error {
-			_, err := rw.ReadMsg()
-			return err
-		},
-		func(rw ReadWriter) error {
-			return rw.ReadMsgInto(&UDPPacket{})
-		},
-	} {
-		var jsonStream bytes.Buffer
-		require.NoError(t, NewReadWriter(&jsonStream, wire.ProtocolV2).WriteMsg(in))
-		negotiatedReader, err := NewUDPPacketReadWriter(&jsonStream, wire.ProtocolV2, wire.UDPPacketCodecBinary)
-		require.NoError(t, err)
-		require.ErrorContains(t, read(negotiatedReader), "JSON UDP packet after binary codec negotiation")
-	}
-
-	var fallbackStream bytes.Buffer
-	fallbackWriter, err := NewUDPPacketReadWriter(&fallbackStream, wire.ProtocolV2, "")
-	require.NoError(t, err)
-	require.NoError(t, fallbackWriter.WriteMsg(in))
-	frame, err := wire.NewConn(&fallbackStream).ReadFrame()
-	require.NoError(t, err)
-	require.Equal(t, V2TypeUDPPacket, binary.BigEndian.Uint16(frame.Payload[:2]))
-}
-
-func TestNewUDPPacketReadWriterDefaultProtocolUsesV1(t *testing.T) {
-	var stream bytes.Buffer
-	rw, err := NewUDPPacketReadWriter(&stream, "", "")
-	require.NoError(t, err)
-	require.IsType(t, &V1ReadWriter{}, rw)
-	require.NoError(t, rw.WriteMsg(&UDPPacket{Content: []byte("legacy")}))
-	require.Equal(t, TypeUDPPacket, stream.Bytes()[0])
-}
-
-func TestNewUDPPacketReadWriterRejectsInvalidSelection(t *testing.T) {
-	for _, tc := range []struct {
-		name           string
-		wireProtocol   string
-		udpPacketCodec string
-		errorSubstring string
-	}{
-		{
-			name:           "binary codec over v1",
-			wireProtocol:   wire.ProtocolV1,
-			udpPacketCodec: wire.UDPPacketCodecBinary,
-			errorSubstring: "requires wire protocol v2",
-		},
-		{
-			name:           "binary codec over default protocol",
-			udpPacketCodec: wire.UDPPacketCodecBinary,
-			errorSubstring: "requires wire protocol v2",
-		},
-		{
-			name:           "unknown v2 codec",
-			wireProtocol:   wire.ProtocolV2,
-			udpPacketCodec: "unknown",
-			errorSubstring: "unsupported UDP packet codec",
-		},
-		{
-			name:           "unknown wire protocol",
-			wireProtocol:   "unknown",
-			errorSubstring: "unsupported wire protocol",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			rw, err := NewUDPPacketReadWriter(&bytes.Buffer{}, tc.wireProtocol, tc.udpPacketCodec)
-			require.Nil(t, rw)
-			require.ErrorContains(t, err, tc.errorSubstring)
-		})
-	}
+	var stream2 bytes.Buffer
+	require.NoError(t, NewUDPPacketReadWriter(&stream2).WriteMsg(in))
+	var packet UDPPacket
+	require.NoError(t, NewUDPPacketReadWriter(&stream2).ReadMsgInto(&packet))
+	require.Equal(t, in.Content, packet.Content)
 }
 
 func FuzzDecodeUDPPacketBinary(f *testing.F) {

@@ -29,11 +29,6 @@ var (
 		"websocket",
 		"wss",
 	}
-	SupportedWireProtocols = []string{
-		"v1",
-		"v2",
-	}
-
 	SupportedAuthMethods = []v1.AuthMethod{
 		"token",
 		"oidc",

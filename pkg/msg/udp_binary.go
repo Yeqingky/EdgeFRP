@@ -234,9 +234,6 @@ func (rw *V2BinaryUDPPacketReadWriter) ReadMsg() (Message, error) {
 	if isV2MessageType(frame, V2TypeUDPPacketBinary) {
 		return decodeV2BinaryUDPPacketFrame(frame)
 	}
-	if isV2MessageType(frame, V2TypeUDPPacket) {
-		return nil, fmt.Errorf("received JSON UDP packet after binary codec negotiation")
-	}
 	return DecodeV2MessageFrame(frame)
 }
 
@@ -308,31 +305,11 @@ func unexpectedV2UDPPacketType(frame *wire.Frame) error {
 		return fmt.Errorf("message frame payload too short")
 	}
 	typeID := binary.BigEndian.Uint16(frame.Payload[:2])
-	if typeID == V2TypeUDPPacket {
-		return fmt.Errorf("received JSON UDP packet after binary codec negotiation")
-	}
 	return fmt.Errorf("unexpected message type %d, want %d", typeID, V2TypeUDPPacketBinary)
 }
 
-// NewUDPPacketReadWriter selects the negotiated packet codec without changing
-// the framing or codecs used by non-UDP messages on the work connection.
-func NewUDPPacketReadWriter(rw io.ReadWriter, wireProtocol, udpPacketCodec string) (ReadWriter, error) {
-	switch wireProtocol {
-	case "", wire.ProtocolV1:
-		if udpPacketCodec != "" {
-			return nil, fmt.Errorf("UDP packet codec %q requires wire protocol v2", udpPacketCodec)
-		}
-		return NewV1ReadWriter(rw), nil
-	case wire.ProtocolV2:
-		switch udpPacketCodec {
-		case "":
-			return NewV2ReadWriter(rw), nil
-		case wire.UDPPacketCodecBinary:
-			return NewV2BinaryUDPPacketReadWriter(rw), nil
-		default:
-			return nil, fmt.Errorf("unsupported UDP packet codec %q", udpPacketCodec)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported wire protocol %q", wireProtocol)
-	}
+// NewUDPPacketReadWriter returns the binary UDP packet codec used by all
+// negotiated sessions.
+func NewUDPPacketReadWriter(rw io.ReadWriter) *V2BinaryUDPPacketReadWriter {
+	return NewV2BinaryUDPPacketReadWriter(rw)
 }

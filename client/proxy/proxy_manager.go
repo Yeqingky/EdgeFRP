@@ -43,8 +43,7 @@ type Manager struct {
 	encryptionKey []byte
 	clientCfg     *v1.ClientCommonConfig
 
-	ctx            context.Context
-	udpPacketCodec string
+	ctx context.Context
 }
 
 func NewManager(
@@ -53,7 +52,6 @@ func NewManager(
 	encryptionKey []byte,
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
-	udpPacketCodec string,
 ) *Manager {
 	return &Manager{
 		proxies:        make(map[string]*Wrapper),
@@ -63,7 +61,6 @@ func NewManager(
 		encryptionKey:  encryptionKey,
 		clientCfg:      clientCfg,
 		ctx:            ctx,
-		udpPacketCodec: udpPacketCodec,
 	}
 }
 
@@ -204,7 +201,7 @@ func (pm *Manager) UpdateAll(proxyCfgs []v1.ProxyConfigurer) {
 	for _, cfg := range proxyCfgs {
 		name := cfg.GetBaseConfig().Name
 		if _, ok := pm.proxies[name]; !ok {
-			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.encryptionKey, pm.HandleEvent, pm.msgTransporter, pm.vnetController, pm.udpPacketCodec)
+			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.encryptionKey, pm.HandleEvent, pm.msgTransporter, pm.vnetController)
 			if pm.inWorkConnCallback != nil {
 				pxy.SetInWorkConnCallback(pm.inWorkConnCallback)
 			}

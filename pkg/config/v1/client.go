@@ -55,10 +55,6 @@ type ClientCommonConfig struct {
 	// failed login attempt. If false, the client will retry until a login
 	// attempt succeeds. By default, this value is true.
 	LoginFailExit *bool `json:"loginFailExit,omitempty"`
-	// Start specifies a set of enabled proxies by name. If this set is empty,
-	// all supplied proxies are enabled. By default, this value is an empty
-	// set.
-	Start []string `json:"start,omitempty"`
 
 	Log           LogConfig             `json:"log,omitempty"`
 	WebServer     WebServerConfig       `json:"webServer,omitempty"`
@@ -106,9 +102,6 @@ type ClientTransportConfig struct {
 	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
 	// is "tcp".
 	Protocol string `json:"protocol,omitempty"`
-	// WireProtocol specifies the frpc/frps internal wire protocol version.
-	// Valid values are "v1" and "v2". By default, this value is "v1".
-	WireProtocol string `json:"wireProtocol,omitempty"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `json:"dialServerTimeout,omitempty"`
 	// DialServerKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
@@ -148,7 +141,6 @@ type ClientTransportConfig struct {
 
 func (c *ClientTransportConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
-	c.WireProtocol = util.EmptyOr(c.WireProtocol, "v1")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))
@@ -173,17 +165,12 @@ type TLSClientConfig struct {
 	// client will load the supplied tls configuration.
 	// Since v0.50.0, the default value has been changed to true, and tls is enabled by default.
 	Enable *bool `json:"enable,omitempty"`
-	// If DisableCustomTLSFirstByte is set to false, frpc will establish a connection with frps using the
-	// first custom byte when tls is enabled.
-	// Since v0.50.0, the default value has been changed to true, and the first custom byte is disabled by default.
-	DisableCustomTLSFirstByte *bool `json:"disableCustomTLSFirstByte,omitempty"`
 
 	TLSConfig
 }
 
 func (c *TLSClientConfig) Complete() {
 	c.Enable = util.EmptyOr(c.Enable, new(true))
-	c.DisableCustomTLSFirstByte = util.EmptyOr(c.DisableCustomTLSFirstByte, new(true))
 }
 
 type AuthClientConfig struct {

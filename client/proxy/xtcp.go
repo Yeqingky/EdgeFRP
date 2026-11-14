@@ -57,7 +57,7 @@ func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	defer conn.Close()
-	natHoleSidMsg, err := readNatHoleSid(conn, pxy.clientCfg.Transport.WireProtocol)
+	natHoleSidMsg, err := readNatHoleSid(conn)
 	if err != nil {
 		xl.Errorf("xtcp read from workConn error: %v", err)
 		return
@@ -130,8 +130,8 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 	pxy.listenByQUIC(listenConn, raddr, startWorkConnMsg)
 }
 
-func readNatHoleSid(conn net.Conn, wireProtocol string) (*msg.NatHoleSid, error) {
-	workMsgConn := msg.NewConn(conn, msg.NewReadWriter(conn, wireProtocol))
+func readNatHoleSid(conn net.Conn) (*msg.NatHoleSid, error) {
+	workMsgConn := msg.NewConn(conn, msg.NewV2ReadWriter(conn))
 	var natHoleSidMsg msg.NatHoleSid
 	if err := workMsgConn.ReadMsgInto(&natHoleSidMsg); err != nil {
 		return nil, err

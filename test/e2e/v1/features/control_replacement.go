@@ -34,16 +34,14 @@ import (
 var _ = ginkgo.Describe("[Feature: ControlReplacement]", func() {
 	f := framework.NewDefaultFramework()
 
-	for _, wireProtocol := range []string{"v1", "v2"} {
-		for _, tcpMux := range []bool{true, false} {
-			ginkgo.It(fmt.Sprintf("recovers a %s control through a half-open relay with tcpMux=%t", wireProtocol, tcpMux), func() {
-				runHalfOpenControlReplacement(f, wireProtocol, tcpMux)
-			})
-		}
+	for _, tcpMux := range []bool{true, false} {
+		ginkgo.It(fmt.Sprintf("recovers a control through a half-open relay with tcpMux=%t", tcpMux), func() {
+			runHalfOpenControlReplacement(f, tcpMux)
+		})
 	}
 })
 
-func runHalfOpenControlReplacement(f *framework.Framework, wireProtocol string, tcpMux bool) {
+func runHalfOpenControlReplacement(f *framework.Framework, tcpMux bool) {
 	serverPort := f.AllocPort()
 	dashboardPort := f.AllocPort()
 	remotePort := f.AllocPort()
@@ -84,7 +82,6 @@ serverPort = %d
 clientID = "issue-5391"
 loginFailExit = false
 log.level = "trace"
-transport.wireProtocol = %q
 transport.tcpMux = %t
 transport.tcpMuxKeepaliveInterval = 1
 transport.heartbeatInterval = %d
@@ -96,7 +93,7 @@ name = "issue-5391-tcp"
 type = "tcp"
 localPort = %d
 remotePort = %d
-`, halfOpenRelay.BindPort(), wireProtocol, tcpMux, heartbeatInterval, clientHeartbeatTimeout,
+`, halfOpenRelay.BindPort(), tcpMux, heartbeatInterval, clientHeartbeatTimeout,
 		f.PortByName(framework.TCPEchoServerPort), remotePort)
 	clientConfigPath := f.WriteTempFile("issue-5391-frpc.toml", clientConfig)
 	clientProcess, _, err := f.StartFrpc("-c", clientConfigPath)

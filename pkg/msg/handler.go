@@ -21,8 +21,6 @@ import (
 	"reflect"
 	"sync"
 	"time"
-
-	"github.com/fatedier/frp/pkg/proto/wire"
 )
 
 type ReadWriter interface {
@@ -66,39 +64,6 @@ func (c *Conn) WithContext(ctx context.Context) {
 	if setter, ok := c.Conn.(interface{ WithContext(context.Context) }); ok {
 		setter.WithContext(ctx)
 	}
-}
-
-type V1ReadWriter struct {
-	rw io.ReadWriter
-}
-
-func NewV1ReadWriter(rw io.ReadWriter) ReadWriter {
-	return &V1ReadWriter{rw: rw}
-}
-
-// NewReadWriter wraps rw with the message codec for the selected wire protocol.
-// An empty protocol keeps the historical v1 behavior for tests and older call sites.
-func NewReadWriter(rw io.ReadWriter, wireProtocol string) ReadWriter {
-	switch wireProtocol {
-	case wire.ProtocolV2:
-		return NewV2ReadWriter(rw)
-	case "", wire.ProtocolV1:
-		return NewV1ReadWriter(rw)
-	default:
-		return NewV1ReadWriter(rw)
-	}
-}
-
-func (rw *V1ReadWriter) ReadMsg() (Message, error) {
-	return ReadMsg(rw.rw)
-}
-
-func (rw *V1ReadWriter) ReadMsgInto(m Message) error {
-	return ReadMsgInto(rw.rw, m)
-}
-
-func (rw *V1ReadWriter) WriteMsg(m Message) error {
-	return WriteMsg(rw.rw, m)
 }
 
 func AsyncHandler(f func(Message)) func(Message) {

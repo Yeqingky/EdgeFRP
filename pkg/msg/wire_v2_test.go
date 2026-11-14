@@ -40,31 +40,6 @@ func TestV2ReadWriterRoundTrip(t *testing.T) {
 	require.Equal(t, in, out)
 }
 
-func TestNewReadWriter(t *testing.T) {
-	require.IsType(t, &V1ReadWriter{}, NewReadWriter(&bytes.Buffer{}, ""))
-	require.IsType(t, &V1ReadWriter{}, NewReadWriter(&bytes.Buffer{}, wire.ProtocolV1))
-	require.IsType(t, &V1ReadWriter{}, NewReadWriter(&bytes.Buffer{}, "unknown"))
-	require.IsType(t, &V2ReadWriter{}, NewReadWriter(&bytes.Buffer{}, wire.ProtocolV2))
-}
-
-func TestNewReadWriterEncoding(t *testing.T) {
-	for _, wireProtocol := range []string{"", wire.ProtocolV1} {
-		var legacy bytes.Buffer
-		legacyRW := NewReadWriter(&legacy, wireProtocol)
-		require.NoError(t, legacyRW.WriteMsg(&UDPPacket{Content: []byte("legacy")}))
-		require.NotEmpty(t, legacy.Bytes())
-		require.Equal(t, TypeUDPPacket, legacy.Bytes()[0])
-	}
-
-	var v2 bytes.Buffer
-	v2RW := NewReadWriter(&v2, wire.ProtocolV2)
-	require.NoError(t, v2RW.WriteMsg(&UDPPacket{Content: []byte("v2")}))
-	frame, err := wire.NewConn(&v2).ReadFrame()
-	require.NoError(t, err)
-	require.Equal(t, wire.FrameTypeMessage, frame.Type)
-	require.Equal(t, V2TypeUDPPacket, binary.BigEndian.Uint16(frame.Payload[:2]))
-}
-
 func TestV2MessageTypeIDsAreStable(t *testing.T) {
 	require.Equal(t, uint16(1), V2TypeLogin)
 	require.Equal(t, uint16(2), V2TypeLoginResp)
@@ -78,7 +53,6 @@ func TestV2MessageTypeIDsAreStable(t *testing.T) {
 	require.Equal(t, uint16(10), V2TypeNewVisitorConnResp)
 	require.Equal(t, uint16(11), V2TypePing)
 	require.Equal(t, uint16(12), V2TypePong)
-	require.Equal(t, uint16(13), V2TypeUDPPacket)
 	require.Equal(t, uint16(14), V2TypeNatHoleVisitor)
 	require.Equal(t, uint16(15), V2TypeNatHoleClient)
 	require.Equal(t, uint16(16), V2TypeNatHoleResp)

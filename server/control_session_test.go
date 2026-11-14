@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/msg"
-	"github.com/fatedier/frp/pkg/proto/wire"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -79,7 +78,7 @@ func TestControlConcurrentReplacementClosesLosingSessions(t *testing.T) {
 					ClientID:     "client",
 					Timestamp:    1,
 					PrivilegeKey: util.GetAuthKey("", 1),
-				}, false, wire.ProtocolV1, "", server)
+				}, false, server)
 				if r.err == nil {
 					r.err = svr.completeControlLogin(r.ctl, func() error { return nil })
 				}
@@ -163,8 +162,8 @@ func newYamuxTestSession(t *testing.T) (*fmux.Session, *fmux.Session, *msg.Conn,
 	defer cancel()
 	serverStream, err := server.AcceptStreamWithContext(ctx)
 	require.NoError(t, err)
-	return client, server, msg.NewConn(clientStream, msg.NewV1ReadWriter(clientStream)),
-		msg.NewConn(serverStream, msg.NewV1ReadWriter(serverStream))
+	return client, server, msg.NewConn(clientStream, msg.NewV2ReadWriter(clientStream)),
+		msg.NewConn(serverStream, msg.NewV2ReadWriter(serverStream))
 }
 
 func newYamuxTestControl(t *testing.T, svr *Service) (*Control, *fmux.Session, *fmux.Session, *msg.Conn) {
@@ -175,7 +174,7 @@ func newYamuxTestControl(t *testing.T, svr *Service) (*Control, *fmux.Session, *
 		ClientID:     "client",
 		Timestamp:    1,
 		PrivilegeKey: util.GetAuthKey("", 1),
-	}, false, wire.ProtocolV1, "", server)
+	}, false, server)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = ctl.Close()

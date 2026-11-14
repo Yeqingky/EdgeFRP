@@ -34,7 +34,6 @@ func (m *serviceConfigManager) ReloadFromFile(strict bool) error {
 	}
 
 	proxyCfgsForValidation, visitorCfgsForValidation := config.FilterClientConfigurers(
-		result.Common,
 		result.Proxies,
 		result.Visitors,
 	)

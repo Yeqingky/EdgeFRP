@@ -115,10 +115,6 @@ transport.poolCount = 5
 # supports tcp, kcp, quic, websocket and wss now, default is tcp
 transport.protocol = "tcp"
 
-# FRP wire protocol used inside the selected transport.
-# supports v1 and v2, default is v1. v2 requires frps support and must be enabled explicitly.
-# transport.wireProtocol = "v1"
-
 # set client binding ip when connect server, default is empty.
 # only when protocol = tcp or websocket, the value will be used.
 transport.connectServerLocalIP = "0.0.0.0"
@@ -149,11 +145,6 @@ transport.tls.enable = true
 # CA loading or certificate verification failures cause the connection to fail.
 # transport.tls.useSystemCa = false
 
-# If the disableCustomTLSFirstByte is set to false, frpc will establish a connection with frps using the
-# first custom byte when tls is enabled.
-# Since v0.50.0, the default value has been changed to true, and the first custom byte is disabled by default.
-# transport.tls.disableCustomTLSFirstByte = true
-
 # Heartbeat configure, it's not recommended to modify the default value.
 # The default value of heartbeatInterval is 10 and heartbeatTimeout is 90. Set negative value
 # to disable it.
@@ -162,18 +153,6 @@ transport.tls.enable = true
 
 # Specify a dns server, so frpc will use this instead of default one
 # dnsServer = "8.8.8.8"
-
-# Proxy names you want to start.
-# Default is empty, means all proxies.
-# This list is a global allowlist after config + store are merged, so entries
-# created via Store API are also filtered by this list.
-# If start is non-empty, any proxy/visitor not listed here will not be started.
-# start = ["ssh", "dns"]
-
-# Alternative to 'start': You can control each proxy individually using the 'enabled' field.
-# Set 'enabled = false' in a proxy configuration to disable it.
-# If 'enabled' is not set or set to true, the proxy is enabled by default.
-# The 'enabled' field provides more granular control and is recommended over 'start'.
 
 # Specify udp packet size, unit is byte. If not set, the default value is 1500.
 # This parameter should be same between client and server.
@@ -194,7 +173,7 @@ metadatas.var1 = "abc"
 metadatas.var2 = "123"
 
 # Include other config files for proxies.
-# includes = ["./confd/*.ini"]
+# includes = ["./confd/*.toml"]
 
 [[proxies]]
 # 'ssh' is the unique proxy name

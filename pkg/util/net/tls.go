@@ -23,11 +23,9 @@ import (
 	libnet "github.com/fatedier/golib/net"
 )
 
-var FRPTLSHeadByte = 0x17
-
 func CheckAndEnableTLSServerConnWithTimeout(
 	c net.Conn, tlsConfig *tls.Config, tlsOnly bool, timeout time.Duration,
-) (out net.Conn, isTLS bool, custom bool, err error) {
+) (out net.Conn, isTLS bool, err error) {
 	sc, r := libnet.NewSharedConnSize(c, 2)
 	buf := make([]byte, 1)
 	var n int
@@ -39,10 +37,6 @@ func CheckAndEnableTLSServerConnWithTimeout(
 	}
 
 	switch {
-	case n == 1 && int(buf[0]) == FRPTLSHeadByte:
-		out = tls.Server(c, tlsConfig)
-		isTLS = true
-		custom = true
 	case n == 1 && int(buf[0]) == 0x16:
 		out = tls.Server(sc, tlsConfig)
 		isTLS = true

@@ -43,7 +43,7 @@ func TestDispatcherEnqueueRejectsStoppedDispatcher(t *testing.T) {
 
 func TestDispatcherAcceptsReadWriterWithoutClose(t *testing.T) {
 	t.Run("codec factory", func(t *testing.T) {
-		d := NewDispatcher(NewV1ReadWriter(&bytes.Buffer{}))
+		d := NewDispatcher(NewV2ReadWriter(&bytes.Buffer{}))
 		d.Run()
 		regressionAwait(t, d.Done(), "non-closable codec EOF")
 	})

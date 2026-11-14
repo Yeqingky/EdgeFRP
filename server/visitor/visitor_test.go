@@ -21,11 +21,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/fatedier/frp/pkg/proto/wire"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-func TestManagerNewConnCarriesWireProtocolAndUDPPacketCodec(t *testing.T) {
+func TestManagerNewConnDeliversConnection(t *testing.T) {
 	vm := NewManager()
 	listener, err := vm.Listen("sudp", "secret", []string{"*"})
 	require.NoError(t, err)
@@ -46,21 +45,11 @@ func TestManagerNewConnCarriesWireProtocolAndUDPPacketCodec(t *testing.T) {
 			false,
 			false,
 			"user",
-			wire.ProtocolV2,
-			wire.UDPPacketCodecBinary,
 		)
 	}()
 
 	acceptedConn, err := listener.Accept()
 	require.NoError(t, err)
 	defer acceptedConn.Close()
-
-	metadata, ok := acceptedConn.(interface {
-		WireProtocol() string
-		UDPPacketCodec() string
-	})
-	require.True(t, ok)
-	require.Equal(t, wire.ProtocolV2, metadata.WireProtocol())
-	require.Equal(t, wire.UDPPacketCodecBinary, metadata.UDPPacketCodec())
 	require.NoError(t, <-errCh)
 }

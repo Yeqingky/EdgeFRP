@@ -30,7 +30,7 @@ type VisitorBaseConfig struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 	// Enabled controls whether this visitor is enabled. nil or true means enabled, false means disabled.
-	// This allows individual control over each visitor, complementing the global "start" field.
+	// This allows individual control over each visitor.
 	Enabled   *bool            `json:"enabled,omitempty"`
 	Transport VisitorTransport `json:"transport,omitempty"`
 	SecretKey string           `json:"secretKey,omitempty"`

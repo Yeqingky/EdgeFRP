@@ -186,7 +186,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if loadErr != nil {
 		return nil, fmt.Errorf("failed to load config from aggregator: %w", loadErr)
 	}
-	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(options.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(proxyCfgs, visitorCfgs)
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
 
@@ -602,7 +602,7 @@ func (svr *Service) reloadConfigFromSourcesLocked() error {
 		return fmt.Errorf("reload config from sources failed: %w", err)
 	}
 
-	proxies, visitors = config.FilterClientConfigurers(reloadCommon, proxies, visitors)
+	proxies, visitors = config.FilterClientConfigurers(proxies, visitors)
 	proxies = config.CompleteProxyConfigurers(proxies)
 	visitors = config.CompleteVisitorConfigurers(visitors)
 	requirements := validation.GetClientConfigRequirements(reloadCommon, proxies, visitors)

@@ -320,11 +320,7 @@ func TestFilterClientConfigurers_PreserveRawNamesAndNoMutation(t *testing.T) {
 	visitorCfg.BindPort = 10081
 	visitorCfg.Enabled = &enabled
 
-	common := &v1.ClientCommonConfig{
-		User: "alice",
-	}
-
-	proxies, visitors := FilterClientConfigurers(common, []v1.ProxyConfigurer{proxyCfg}, []v1.VisitorConfigurer{visitorCfg})
+	proxies, visitors := FilterClientConfigurers([]v1.ProxyConfigurer{proxyCfg}, []v1.VisitorConfigurer{visitorCfg})
 	require.Len(proxies, 1)
 	require.Len(visitors, 1)
 
@@ -426,7 +422,7 @@ func TestCompleteVisitorConfigurers_Idempotent(t *testing.T) {
 	require.Equal(string(firstVisitorJSON), string(secondVisitorJSON))
 }
 
-func TestFilterClientConfigurers_FilterByStartAndEnabled(t *testing.T) {
+func TestFilterClientConfigurers_FilterByEnabled(t *testing.T) {
 	require := require.New(t)
 
 	enabled := true
@@ -438,25 +434,14 @@ func TestFilterClientConfigurers_FilterByStartAndEnabled(t *testing.T) {
 	proxyKeep.LocalPort = 10080
 	proxyKeep.Enabled = &enabled
 
-	proxyDropByStart := &v1.TCPProxyConfig{}
-	proxyDropByStart.Name = "drop-by-start"
-	proxyDropByStart.Type = "tcp"
-	proxyDropByStart.LocalPort = 10081
-	proxyDropByStart.Enabled = &enabled
-
 	proxyDropByEnabled := &v1.TCPProxyConfig{}
 	proxyDropByEnabled.Name = "drop-by-enabled"
 	proxyDropByEnabled.Type = "tcp"
 	proxyDropByEnabled.LocalPort = 10082
 	proxyDropByEnabled.Enabled = &disabled
 
-	common := &v1.ClientCommonConfig{
-		Start: []string{"keep"},
-	}
-
-	proxies, visitors := FilterClientConfigurers(common, []v1.ProxyConfigurer{
+	proxies, visitors := FilterClientConfigurers([]v1.ProxyConfigurer{
 		proxyKeep,
-		proxyDropByStart,
 		proxyDropByEnabled,
 	}, nil)
 	require.Len(visitors, 0)

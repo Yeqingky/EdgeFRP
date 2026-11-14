@@ -59,15 +59,13 @@ func TestControlPropagatesBinaryUDPPacketCodecToWorkConn(t *testing.T) {
 		_ = controlPeer.Close()
 	})
 	common := &v1.ClientCommonConfig{
-		Transport:     v1.ClientTransportConfig{WireProtocol: wire.ProtocolV2},
 		UDPPacketSize: 1500,
 	}
 	ctl, err := NewControl(context.Background(), &SessionContext{
-		Common:         common,
-		RunID:          "binary-udp-test",
-		Conn:           msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn)),
-		Auth:           authRuntime,
-		UDPPacketCodec: wire.UDPPacketCodecBinary,
+		Common: common,
+		RunID:  "binary-udp-test",
+		Conn:   msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn)),
+		Auth:   authRuntime,
 	})
 	require.NoError(t, err)
 	t.Cleanup(ctl.pm.Close)
@@ -100,8 +98,7 @@ func TestControlPropagatesBinaryUDPPacketCodecToWorkConn(t *testing.T) {
 	require.NoError(t, workServer.SetDeadline(deadline))
 	ctl.pm.HandleWorkConn("udp", workClient, &msg.StartWorkConn{ProxyName: "udp"})
 
-	serverRW, err := msg.NewUDPPacketReadWriter(workServer, wire.ProtocolV2, wire.UDPPacketCodecBinary)
-	require.NoError(t, err)
+	serverRW := msg.NewUDPPacketReadWriter(workServer)
 	writeDone := make(chan error, 1)
 	in := &msg.UDPPacket{
 		Content:    []byte("binary udp"),

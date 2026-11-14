@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"bufio"
 	"encoding/binary"
 	"net"
 	"testing"
@@ -27,7 +26,7 @@ import (
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
 
-func TestWriteNatHoleSidUsesWireV2MessageFrame(t *testing.T) {
+func TestWriteNatHoleSidUsesMessageFrame(t *testing.T) {
 	client, server := net.Pipe()
 	defer client.Close()
 	defer server.Close()
@@ -35,7 +34,7 @@ func TestWriteNatHoleSidUsesWireV2MessageFrame(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- writeNatHoleSid(server, wire.ProtocolV2, "sid-v2")
+		errCh <- writeNatHoleSid(server, "sid-v2")
 	}()
 
 	frame, err := wire.NewConn(client).ReadFrame()
@@ -48,39 +47,6 @@ func TestWriteNatHoleSidUsesWireV2MessageFrame(t *testing.T) {
 	require.NoError(t, msg.DecodeV2MessageFrameInto(frame, &out))
 	require.Equal(t, "sid-v2", out.Sid)
 	require.NoError(t, <-errCh)
-}
-
-func TestWriteNatHoleSidUsesLegacyCodecForWireV1AndDefault(t *testing.T) {
-	for _, tc := range []struct {
-		name         string
-		wireProtocol string
-	}{
-		{name: "default", wireProtocol: ""},
-		{name: "v1", wireProtocol: wire.ProtocolV1},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			client, server := net.Pipe()
-			defer client.Close()
-			defer server.Close()
-			setPipeDeadline(t, client, server)
-
-			errCh := make(chan error, 1)
-			go func() {
-				errCh <- writeNatHoleSid(server, tc.wireProtocol, "sid-legacy")
-			}()
-
-			reader := bufio.NewReader(client)
-			typeByte, err := reader.ReadByte()
-			require.NoError(t, err)
-			require.Equal(t, msg.TypeNatHoleSid, typeByte)
-			require.NoError(t, reader.UnreadByte())
-
-			var out msg.NatHoleSid
-			require.NoError(t, msg.ReadMsgInto(reader, &out))
-			require.Equal(t, "sid-legacy", out.Sid)
-			require.NoError(t, <-errCh)
-		})
-	}
 }
 
 func setPipeDeadline(t *testing.T, conns ...net.Conn) {

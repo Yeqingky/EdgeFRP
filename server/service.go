@@ -339,7 +339,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// frp tls listener
 	svr.tlsListener = svr.muxer.Listen(2, 1, func(data []byte) bool {
 		// tls first byte can be 0x16 only when vhost https port is not same with bind port
-		return int(data[0]) == netpkg.FRPTLSHeadByte || int(data[0]) == 0x16
+		return int(data[0]) == 0x16
 	})
 
 	// Create nat hole controller.
@@ -552,7 +552,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec, session)
+				ctl, err = svr.RegisterControl(controlConn, m, internal, session)
 			}
 		}
 
@@ -594,7 +594,6 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 		if err := svr.RegisterWorkConn(
 			acceptedConn.conn,
 			m,
-			acceptedConn.wireProtocol,
 			acceptedConn.clientHelloPresent,
 		); err != nil {
 			_ = acceptedConn.conn.WriteMsg(&msg.StartWorkConn{
@@ -603,7 +602,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			conn.Close()
 		}
 	case *msg.NewVisitorConn:
-		if err = svr.RegisterVisitorConn(conn, m, acceptedConn.wireProtocol); err != nil {
+		if err = svr.RegisterVisitorConn(conn, m); err != nil {
 			xl.Warnf("register visitor conn error: %v", err)
 			_ = acceptedConn.conn.WriteMsg(&msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
@@ -635,37 +634,25 @@ func (svr *Service) completeControlLogin(ctl *Control, writeSuccess func() error
 
 type acceptedConnection struct {
 	conn               *msg.Conn
-	wireProtocol       string
 	clientHelloPresent bool
-	udpPacketCodec     string
 	cryptoContext      *wire.CryptoContext
 	firstMsg           msg.Message
 }
 
 func (svr *Service) acceptConnection(ctx context.Context, conn net.Conn) (*acceptedConnection, error) {
 	_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
-	checkedConn, isV2, err := wire.CheckMagic(conn)
-	if err != nil {
+	if err := wire.ReadMagic(conn); err != nil {
 		return nil, fmt.Errorf("read wire protocol magic: %w", err)
 	}
 
-	wireProtocol := wire.ProtocolV1
-	if isV2 {
-		wireProtocol = wire.ProtocolV2
+	conn = netpkg.NewContextConn(ctx, conn)
+	wireConn := wire.NewConn(conn)
+	rw := msg.NewV2ReadWriterWithConn(wireConn)
+	acceptedConn := &acceptedConnection{
+		conn: msg.NewConn(conn, rw),
 	}
-
-	conn = netpkg.NewContextConn(ctx, checkedConn)
-	acceptedConn := &acceptedConnection{wireProtocol: wireProtocol}
-	if isV2 {
-		wireConn := wire.NewConn(conn)
-		rw := msg.NewV2ReadWriterWithConn(wireConn)
-		acceptedConn.conn = msg.NewConn(conn, rw)
-		acceptedConn.firstMsg, err = acceptedConn.readFirstV2Msg(conn, wireConn)
-	} else {
-		rw := msg.NewV1ReadWriter(conn)
-		acceptedConn.conn = msg.NewConn(conn, rw)
-		acceptedConn.firstMsg, err = acceptedConn.conn.ReadMsg()
-	}
+	var err error
+	acceptedConn.firstMsg, err = acceptedConn.readFirstV2Msg(conn, wireConn)
 	if err != nil {
 		return nil, err
 	}
@@ -682,23 +669,20 @@ func writeWithDeadline(conn net.Conn, timeout time.Duration, writeFn func() erro
 }
 
 func (ac *acceptedConnection) messageConnFor(rw io.ReadWriter) *msg.Conn {
-	return msg.NewConn(ac.conn, msg.NewReadWriter(rw, ac.wireProtocol))
+	return msg.NewConn(ac.conn, msg.NewV2ReadWriter(rw))
 }
 
 func (ac *acceptedConnection) newControlReadWriter(rw io.ReadWriter, key []byte) (io.ReadWriter, error) {
-	if ac.wireProtocol == wire.ProtocolV2 {
-		if ac.cryptoContext == nil {
-			return nil, fmt.Errorf("missing v2 crypto negotiation")
-		}
-		return netpkg.NewAEADCryptoReadWriter(
-			rw,
-			key,
-			netpkg.AEADCryptoRoleServer,
-			ac.cryptoContext.Algorithm,
-			ac.cryptoContext.TranscriptHash,
-		)
+	if ac.cryptoContext == nil {
+		return nil, fmt.Errorf("missing crypto negotiation")
 	}
-	return netpkg.NewCryptoReadWriter(rw, key)
+	return netpkg.NewAEADCryptoReadWriter(
+		rw,
+		key,
+		netpkg.AEADCryptoRoleServer,
+		ac.cryptoContext.Algorithm,
+		ac.cryptoContext.TranscriptHash,
+	)
 }
 
 func (ac *acceptedConnection) readFirstV2Msg(conn net.Conn, wireConn *wire.Conn) (msg.Message, error) {
@@ -756,7 +740,6 @@ func (ac *acceptedConnection) handleClientHello(conn net.Conn, wireConn *wire.Co
 		return fmt.Errorf("write ServerHello: %w", err)
 	}
 	ac.cryptoContext = cryptoContext
-	ac.udpPacketCodec = serverHello.Selected.Message.UDPPacketCodec
 	return nil
 }
 
@@ -781,14 +764,14 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 			log.Tracef("start check TLS connection...")
 			originConn := c
 			forceTLS := svr.cfg.Transport.TLS.Force
-			var isTLS, custom bool
-			c, isTLS, custom, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
+			var isTLS bool
+			c, isTLS, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
 			if err != nil {
 				log.Warnf("checkAndEnableTLSServerConnWithTimeout error: %v", err)
 				originConn.Close()
 				continue
 			}
-			log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: %v", isTLS, custom, internal)
+			log.Tracef("check TLS connection success, isTLS: %v internal: %v", isTLS, internal)
 		}
 
 		// Start a new goroutine to handle connection.
@@ -849,22 +832,8 @@ func (svr *Service) RegisterControl(
 	ctlConn *msg.Conn,
 	loginMsg *msg.Login,
 	internal bool,
-	wireProtocol string,
-	udpPacketCodec string,
 	session io.Closer,
 ) (*Control, error) {
-	switch wireProtocol {
-	case wire.ProtocolV1:
-		if udpPacketCodec != "" {
-			return nil, fmt.Errorf("UDP packet codec %q requires wire protocol v2", udpPacketCodec)
-		}
-	case wire.ProtocolV2:
-		if udpPacketCodec != "" && udpPacketCodec != wire.UDPPacketCodecBinary {
-			return nil, fmt.Errorf("unsupported UDP packet codec selection: %s", udpPacketCodec)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported wire protocol: %s", wireProtocol)
-	}
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	var err error
@@ -895,17 +864,15 @@ func (svr *Service) RegisterControl(
 	}
 
 	ctl, err := NewControl(ctx, &SessionContext{
-		RC:             svr.rc,
-		PxyManager:     svr.pxyManager,
-		PluginManager:  svr.pluginManager,
-		AuthVerifier:   authVerifier,
-		EncryptionKey:  svr.auth.EncryptionKey(),
-		Conn:           ctlConn,
-		Session:        session,
-		LoginMsg:       loginMsg,
-		ServerCfg:      svr.cfg,
-		WireProtocol:   wireProtocol,
-		UDPPacketCodec: udpPacketCodec,
+		RC:            svr.rc,
+		PxyManager:    svr.pxyManager,
+		PluginManager: svr.pluginManager,
+		AuthVerifier:  authVerifier,
+		EncryptionKey: svr.auth.EncryptionKey(),
+		Conn:          ctlConn,
+		Session:       session,
+		LoginMsg:      loginMsg,
+		ServerCfg:     svr.cfg,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -933,7 +900,6 @@ func (svr *Service) RegisterControl(
 func (svr *Service) RegisterWorkConn(
 	workConn *msg.Conn,
 	newMsg *msg.NewWorkConn,
-	workWireProtocol string,
 	workClientHelloPresent bool,
 ) error {
 	if workClientHelloPresent {
@@ -944,9 +910,6 @@ func (svr *Service) RegisterWorkConn(
 	if !exist {
 		xl.Warnf("no client control found for run id [%s]", newMsg.RunID)
 		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
-	}
-	if workWireProtocol != ctl.sessionCtx.WireProtocol {
-		return fmt.Errorf("work connection wire protocol mismatch: got %s want %s", workWireProtocol, ctl.sessionCtx.WireProtocol)
 	}
 
 	// server plugin hook
@@ -971,30 +934,16 @@ func (svr *Service) RegisterWorkConn(
 	return svr.ctlManager.RegisterWorkConn(ctl, proxy.NewWorkConn(workConn))
 }
 
-func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn, wireProtocol string) error {
-	admit := func(visitorUser, visitorWireProtocol, visitorUDPPacketCodec string) error {
-		if visitorWireProtocol == "" {
-			visitorWireProtocol = wireProtocol
-		}
+func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
+	admitted, err := svr.ctlManager.admitVisitorByRunID(newMsg.RunID, func(visitorUser string) error {
 		return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
-			newMsg.UseEncryption, newMsg.UseCompression, visitorUser, visitorWireProtocol, visitorUDPPacketCodec)
+			newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
+	})
+	if err != nil {
+		return err
 	}
-	// TODO(deprecation): Compatible with old versions, can be without runID, user is empty. In later versions, it will be mandatory to include runID.
-	// If runID is required, it is not compatible with versions prior to v0.50.0.
-	if newMsg.RunID != "" {
-		admitted, err := svr.ctlManager.admitVisitorByRunID(newMsg.RunID, func(visitorUser, controlWireProtocol, controlUDPPacketCodec string) error {
-			if wireProtocol != controlWireProtocol {
-				return fmt.Errorf("visitor connection wire protocol mismatch: got %s want %s", wireProtocol, controlWireProtocol)
-			}
-			return admit(visitorUser, controlWireProtocol, controlUDPPacketCodec)
-		})
-		if err != nil {
-			return err
-		}
-		if !admitted {
-			return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
-		}
-		return nil
+	if !admitted {
+		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 	}
-	return admit("", wireProtocol, "")
+	return nil
 }

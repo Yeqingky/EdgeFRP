@@ -113,12 +113,7 @@ func (sv *SUDPVisitor) dispatcher() {
 func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	xl.Debugf("starting sudp proxy worker")
-	payloadRW, err := msg.NewUDPPacketReadWriter(workConn, sv.clientCfg.Transport.WireProtocol, udpPacketCodecFromHelper(sv.helper))
-	if err != nil {
-		xl.Errorf("create SUDP packet read writer: %v", err)
-		_ = workConn.Close()
-		return
-	}
+	payloadRW := msg.NewUDPPacketReadWriter(workConn)
 	payloadConn := msg.NewConn(workConn, payloadRW)
 
 	wg := &sync.WaitGroup{}

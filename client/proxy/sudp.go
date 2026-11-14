@@ -87,12 +87,7 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	}
 
 	workConn := netpkg.WrapReadWriteCloserToConn(remote, conn)
-	payloadRW, err := msg.NewUDPPacketReadWriter(workConn, pxy.clientCfg.Transport.WireProtocol, pxy.udpPacketCodec)
-	if err != nil {
-		xl.Errorf("create SUDP packet read writer: %v", err)
-		_ = workConn.Close()
-		return
-	}
+	payloadRW := msg.NewUDPPacketReadWriter(workConn)
 	payloadConn := msg.NewConn(workConn, payloadRW)
 	readCh := make(chan *msg.UDPPacket, 1024)
 	sendCh := make(chan msg.Message, 1024)
